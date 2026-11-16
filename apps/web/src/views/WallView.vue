@@ -98,7 +98,7 @@ const show = (p: string) => (settings.p.mask ? maskPhone(p) : p)
 
 <template>
   <section>
-    <div class="head"><div class="ht"><h1>Live wall</h1><span class="chip" id="live"><i class="ld2"></i><span>Live</span></span></div>
+    <div v-sticky-head class="head"><div class="ht"><h1>Live wall</h1><span class="chip" id="live"><i class="ld2"></i><span>Live</span></span></div>
       <div v-if="wall.data.value" v-hover-scroll class="kp">
         <KpiTile icon="phone" :value="pad2(wall.data.value.activeCalls)" label="Active calls" metric="calls" />
         <KpiTile icon="wait" :value="pad2(wall.data.value.waitingCallbacks)" label="Callbacks waiting" dark />

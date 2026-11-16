@@ -126,7 +126,7 @@ const canCall = computed(() => session.role === 'agent' || session.role === 'sup
   <section>
     <!-- Directory -->
     <div v-if="!sel">
-      <div class="head"><div class="ht"><h1>Customers</h1><button v-if="canCall || session.role === 'admin'" @click="bindOpen = true">Bind a number</button></div>
+      <div v-sticky-head class="head"><div class="ht"><h1>Customers</h1><button v-if="canCall || session.role === 'admin'" @click="bindOpen = true">Bind a number</button></div>
         <div v-hover-scroll class="kp"><KpiTile icon="users" :value="pad2(list.length)" label="Customers" /><KpiTile icon="wallet" :value="pad2(lowCount)" label="Low wallet" dark /></div></div>
       <BindingsPanel ref="bindings" />
       <div class="cdh">
@@ -161,7 +161,7 @@ const canCall = computed(() => session.role === 'agent' || session.role === 'sup
 
     <!-- Detail -->
     <div v-else>
-      <div class="head"><div class="ht"><button class="ib" aria-label="Back to all customers" @click="back"><Icon name="lft" /></button><h1>{{ sel.name }}</h1></div>
+      <div v-sticky-head class="head"><div class="ht"><button class="ib" aria-label="Back to all customers" @click="back"><Icon name="lft" /></button><h1>{{ sel.name }}</h1></div>
         <div v-hover-scroll class="kp"><KpiTile icon="bolt" :value="pad2(detail?.purchases.length ?? 0)" label="Recent vends" /><KpiTile icon="flag" :value="pad2(full?.stages.reported ?? 0)" label="Cases" dark /><KpiTile icon="clock" :value="pad2(full?.callbacks.length ?? 0)" label="Callbacks" /></div></div>
       <div class="bento"><div class="hero">
         <div class="pc"><div class="pa">{{ initials(sel.name) }}</div><b style="font-weight: 400; font-size: 18px">{{ sel.name }}</b><div style="color: var(--mut)">{{ sel.accountType }}, {{ sel.area }}</div>

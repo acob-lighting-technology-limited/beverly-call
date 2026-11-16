@@ -50,7 +50,7 @@ async function saveScore(): Promise<void> {
 
 <template>
   <section>
-    <div class="head"><div class="ht"><h1>Reports</h1>
+    <div v-sticky-head class="head"><div class="ht"><h1>Reports</h1>
       <div class="ss" style="margin: 0; width: 190px" role="group" aria-label="Range"><button v-for="r in (['1', '7', '30'] as ReportRange[])" :key="r" :class="{ on: range === r }" @click="range = r">{{ r === '1' ? 'Today' : `${r}d` }}</button></div></div>
       <div v-if="rep.data.value" v-hover-scroll class="kp">
         <KpiTile icon="phone" :value="rep.data.value.calls" :label="label" metric="calls" />

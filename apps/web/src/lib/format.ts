@@ -17,3 +17,7 @@ export function csvCell(v: string | number): string {
 
 /** Today in Beverly's time zone (WAT) as YYYY-MM-DD, whatever the browser's own zone is. */
 export const lagosToday = (): string => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Lagos', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+
+/** Full date and time in Beverly's time zone, for records where the exact moment matters (audit log). */
+export const dateTime = (iso: string): string =>
+  new Date(iso).toLocaleString(intl(), { timeZone: 'Africa/Lagos', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })

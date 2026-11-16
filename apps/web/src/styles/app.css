@@ -435,7 +435,7 @@ input[type=range]{accent-color:var(--yel);padding:0;height:24px}
 @media (max-height:760px){#call .av{width:clamp(80px,20vh,120px);font-size:clamp(28px,7vh,44px)}}
 
 /* sticky page headers must hide what scrolls under them, in every surface mode */
-.head,[data-surf=glass] .head{background:linear-gradient(var(--g1) 72%,transparent)!important}
+
 
 /* ===== polish: numerics, hierarchy, interaction (design-system tokens) ===== */
 .fk b,.kn,.tm,.donut div,.rg div,td,.pill,.chip,.cm small,.ni small{font-variant-numeric:tabular-nums}
@@ -509,11 +509,19 @@ nav[data-admin]{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 55%,transpa
 @media (prefers-reduced-motion:reduce){:root nav .rail-morph-enter-active .rail-item.rail-item,.rail-morph-enter-active,.rail-morph-leave-active{transition:none}}
 :root[data-rm] nav .rail-morph-enter-active .rail-item.rail-item{transition:none}
 
-/* Page title bar: soft frosted glass that fades into the page, instead of a flat grey-white block */
-.head,[data-surf=glass] .head{
-  background:linear-gradient(180deg,color-mix(in srgb,var(--card) 58%,transparent) 0%,color-mix(in srgb,var(--card) 26%,transparent) 62%,transparent 100%)!important;
-  backdrop-filter:blur(18px) saturate(1.4)!important;-webkit-backdrop-filter:blur(18px) saturate(1.4)!important;
-  -webkit-mask-image:linear-gradient(#000 70%,transparent);mask-image:linear-gradient(#000 70%,transparent);
+/* Page title bar: invisible at rest, so nothing sits under the navbar. Frosted glass fades in only once content scrolls
+   beneath it (the .stuck class from lib/sticky-head.ts), with soft edges on all sides instead of a hard slab. */
+.head,[data-surf=glass] .head{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;-webkit-mask-image:none;mask-image:none;box-shadow:none}
+.head.stuck,[data-surf=glass] .head.stuck{
+  background:linear-gradient(180deg,color-mix(in srgb,var(--surface) 74%,transparent) 0%,color-mix(in srgb,var(--surface) 40%,transparent) 68%,transparent 100%)!important;
+  backdrop-filter:blur(16px) saturate(1.5)!important;-webkit-backdrop-filter:blur(16px) saturate(1.5)!important;
+  -webkit-mask-image:linear-gradient(#000 72%,transparent),linear-gradient(90deg,transparent,#000 28px,#000 calc(100% - 28px),transparent);
+  -webkit-mask-composite:source-in;
+  mask-image:linear-gradient(#000 72%,transparent),linear-gradient(90deg,transparent,#000 28px,#000 calc(100% - 28px),transparent);
+  mask-composite:intersect;
+}
+@media (prefers-reduced-transparency:reduce),(prefers-contrast:more),(forced-colors:active){
+  .head.stuck,[data-surf=glass] .head.stuck{background:var(--surface)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;-webkit-mask-image:none;mask-image:none;box-shadow:0 1px 0 var(--border)}
 }
 .ht .ib{background:color-mix(in srgb,var(--card) 80%,transparent);box-shadow:0 2px 10px rgba(0,0,0,.06)}
 
@@ -544,3 +552,37 @@ nav[data-admin]{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 55%,transpa
 @media (min-width:900px){.stat-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.stat-grid>.c{padding:var(--sp-4)}}
 /* touch: segmented controls and small icon buttons reach a comfortable 40px target */
 @media (pointer:coarse){.ss button,.vt button,.mv button,.adm-ic,.nph .tx,.chs button,.jm button{min-height:40px;min-width:40px}}
+
+/* ===== sticky system =====
+   PageHeader measures itself and sets --sh (real header height) on the screen; everything below offsets by it.
+   Header (top) > toolbar (under header) > table header (under toolbar). Tall side panels scroll inside themselves. */
+.head-body{max-height:220px;transition:max-height .3s var(--ease),opacity .2s ease,margin .3s var(--ease)}
+.head.compact .head-body{max-height:0;opacity:0;overflow:hidden;margin:0}
+.head.compact{padding-bottom:6px}
+.head.compact .ht{margin-bottom:0}
+/* keyboard focus and anchor jumps never land underneath the sticky header */
+.view{scroll-padding-top:calc(var(--sh,90px) + 12px)}
+/* search and filter toolbars stay in reach while a long list scrolls */
+.dtb,.cdh{position:sticky;top:var(--sh,90px);z-index:4;padding:6px 8px;margin:0 -8px 8px;border-radius:var(--r-md);background:color-mix(in srgb,var(--surface) 88%,transparent)}
+@media (min-width:900px){
+  .stick{max-height:calc(100dvh - var(--sh,90px) - 14px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+  .c:has(.dtb) th,.c:has(.cdh) th{top:calc(var(--sh,90px) + 58px)}
+}
+/* phones and tablets: a table in table view scrolls inside its own bounded box, so its header and first column stay put */
+@media (max-width:899px){
+  .scroll.dv-table{max-height:calc(100dvh - var(--sh,90px) - 200px);min-height:160px;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  .dv-table table.rt{border-collapse:separate;border-spacing:0}
+  .dv-table .rt th{position:sticky;top:0;z-index:3;background:var(--surface)}
+  .dv-table .rt th:first-child,.dv-table .rt td:first-child{position:sticky;left:0;z-index:2;background:var(--surface);box-shadow:1px 0 0 var(--border)}
+  .dv-table .rt th:first-child{z-index:4}
+}
+/* day group labels in the notification list stay visible while the list scrolls */
+.npl h4{position:sticky;top:0;z-index:1;margin:0;padding:10px 8px 4px;background:color-mix(in srgb,var(--card) 94%,transparent)}
+@media (prefers-reduced-motion:reduce){.head-body{transition:none}}
+:root[data-rm] .head-body{transition:none}
+/* hand-written headers fold their KPI strip the same way */
+.head>.kp{max-height:220px;transition:max-height .3s var(--ease),opacity .2s ease,margin .3s var(--ease)}
+.head.compact>.kp{max-height:0;opacity:0;overflow:hidden;margin:0}
+@media (prefers-reduced-motion:reduce){.head>.kp{transition:none}}
+/* toolbars on small phones: the search takes its own row instead of squeezing to an icon */
+@media (max-width:480px){.dtb{flex-wrap:wrap}.dtb .sch{flex:1 1 100%;max-width:none}.dtb .n{margin-left:0}}

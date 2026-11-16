@@ -70,7 +70,7 @@ const closed = computed(() => open.value?.status === 'closed')
 
 <template>
   <section>
-    <div class="head"><div class="ht"><h1>Support tickets</h1></div>
+    <div v-sticky-head class="head"><div class="ht"><h1>Support tickets</h1></div>
       <div v-if="stats.data.value" v-hover-scroll class="kp">
         <KpiTile icon="flag" :value="pad2(stats.data.value.open)" label="Open" />
         <KpiTile icon="clock" :value="pad2(stats.data.value.pending)" label="Pending" dark />

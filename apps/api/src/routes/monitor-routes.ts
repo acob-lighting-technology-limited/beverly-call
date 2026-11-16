@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { DEFAULT_ALERT_LIMITS, alertLimitsSchema, metricKeySchema, metricPeriodSchema, reportRangeSchema, type AuditRow, type LanguageCode, type Metric, type MetricKey, type Recording, type Report, type ReportExtras, type WallSnapshot } from '@beverly-call/shared'
+import { DEFAULT_ALERT_LIMITS, alertLimitsSchema, auditQuerySchema, type AuditPage, metricKeySchema, metricPeriodSchema, reportRangeSchema, type LanguageCode, type Metric, type MetricKey, type Recording, type Report, type ReportExtras, type WallSnapshot } from '@beverly-call/shared'
 import type { AppDeps } from '../app.js'
 import { requireRole } from '../auth/guards.js'
 import { auditAs } from '../audit/audit-request.js'
@@ -185,9 +185,23 @@ export const monitorRoutes = ({ env, pool, fetchImpl, storage }: AppDeps): Fasti
     }
   })
 
-  app.get('/audit', { preHandler: requireRole('admin') }, async (): Promise<AuditRow[]> => {
-    const r = await pool.query<{ seq: string; created_at: Date; actor_role: string; action: string; entity: string; entity_id: string }>(
-      'select seq, created_at, actor_role, action, entity, entity_id from call_centre.audit_log order by seq desc limit 50')
-    return r.rows.map((x) => ({ seq: Number(x.seq), at: x.created_at.toISOString(), actorRole: x.actor_role, action: x.action, entity: x.entity, entityId: x.entity_id }))
+  /** One page of the audit log, newest first, with an optional text filter. Offsets are validated integers; the filter is a bound parameter. */
+  app.get('/audit', { preHandler: requireRole('admin') }, async (req, reply): Promise<AuditPage | void> => {
+    const parsed = auditQuerySchema.safeParse(req.query)
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid paging or filter' })
+    const { page, pageSize, q } = parsed.data
+    const like = q ? `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null
+    const where = like ? 'where action ilike $1 or entity ilike $1 or actor_role ilike $1 or entity_id ilike $1' : ''
+    const filterArgs = like ? [like] : []
+    const [count, rows] = await Promise.all([
+      pool.query<{ n: string }>(`select count(*) n from call_centre.audit_log ${where}`, filterArgs),
+      pool.query<{ seq: string; created_at: Date; actor_role: string; action: string; entity: string; entity_id: string }>(
+        `select seq, created_at, actor_role, action, entity, entity_id from call_centre.audit_log ${where} order by seq desc limit $${filterArgs.length + 1} offset $${filterArgs.length + 2}`,
+        [...filterArgs, pageSize, (page - 1) * pageSize]),
+    ])
+    return {
+      total: Number(count.rows[0]?.n ?? 0), page, pageSize,
+      rows: rows.rows.map((x) => ({ seq: Number(x.seq), at: x.created_at.toISOString(), actorRole: x.actor_role, action: x.action, entity: x.entity, entityId: x.entity_id })),
+    }
   })
 }

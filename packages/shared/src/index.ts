@@ -83,6 +83,15 @@ export type Customer = z.infer<typeof customerSchema>
 
 export const auditRowSchema = z.object({ seq: z.number().int(), at: z.string(), actorRole: z.string(), action: z.string(), entity: z.string(), entityId: z.string() })
 export type AuditRow = z.infer<typeof auditRowSchema>
+/** Audit log paging: server-side, so the whole hash-chained log can be browsed, not just the latest rows. */
+export const AUDIT_PAGE_SIZES = [10, 25, 50, 100] as const
+export const auditQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(1_000_000).default(1),
+  pageSize: z.coerce.number().int().refine((n) => (AUDIT_PAGE_SIZES as readonly number[]).includes(n), 'pageSize must be 10, 25, 50 or 100').default(25),
+  q: z.string().trim().max(60).optional(),
+})
+export const auditPageSchema = z.object({ rows: z.array(auditRowSchema), total: z.number().int(), page: z.number().int(), pageSize: z.number().int() })
+export type AuditPage = z.infer<typeof auditPageSchema>
 
 /* ---- Admin settings, retention, customer detail ---- */
 export const alertLimitsSchema = z.object({

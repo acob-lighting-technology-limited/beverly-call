@@ -1,52 +1,66 @@
-# Beverly Call: production readiness audit
+# Beverly Call: production readiness
 
-Audit date: 2026-11-16. Scope: code review, black-box probes of the running API, automated crawl of every screen and admin section (local mock, seeded test admin), dependency audit, deployment configuration.
+Last verified: 2026-11-16, at commit `8db7c82` plus the commit that adds this file. Everything under "Verified" was run or observed on that date; everything under "Not verified" was not, and is listed so nobody assumes it was.
 
 ## Verdict
-Safe to start operating **once the go-live blockers below are done**. The two high-severity findings from the audit are fixed and covered by tests. Nothing found was a data-exposure bug in the code paths exercised; the open items are configuration, external services and things that cannot be verified from a development machine.
+The code is in good shape and the checks below pass. It is **not yet proven live**: production configuration, scheduled jobs and the carrier cannot be verified from a development machine, and three features are not built. Do the blockers, then run the smoke test at the bottom on the deployed site.
 
-## Fixed in this pass
-| # | Severity | Finding | Fix |
-|---|---|---|---|
-| 1 | High | Login rate limit could be bypassed: the API trusted any `X-Forwarded-For`, so 12 spoofed attempts all reached Beverly sign-in. | Trust only the proxies we run: `TRUST_PROXY_HOPS` (default 1). Test proves spoofing no longer dodges the limit. |
-| 2 | High | `zod` 3.x advisory (GHSA-mrhx-c7xc-m3w5, memory exhaustion on oversized collections). | Upgraded to zod 4.6.x. `pnpm audit --prod` is clean and CI now fails on high advisories. |
-| 3 | Medium | Session cookie was signed, not encrypted: the Beverly bearer token inside could be read by the cookie holder. | Cookie is now A256GCM-encrypted. Existing sessions are invalidated once at deploy. |
-| 4 | Medium | 5xx replies could carry internal error text. | Global error handler returns a fixed message for 5xx and logs the detail. |
-| 5 | Medium | Carrier webhook secret (`?secret=`) was written to request logs. | Logger redacts `secret`, `token`, `key`, `apikey` query values. |
-| 6 | Low | Request bodies capped at the 1 MB default. | 256 KB cap (all bodies here are small). |
-| 7 | Functional | Admin console got HTTP 403 on `GET /api/callbacks`. | Admin may now read the queue (read-only); matrix test updated. |
-| 8 | Config | CSP lacked `base-uri`, `object-src`, `form-action`; no HSTS or COOP/CORP. | Added in `vercel.json`. |
-| 9 | Config | `vercel.json` pointed `/api` at a placeholder host. | The API now runs as a Vercel Function in the same project (no external host). Production builds fail until the required environment variables are set (`scripts/check-deploy.mjs`). |
+## Verified
+| Check | Result |
+|---|---|
+| Typecheck (`pnpm typecheck`) | 0 errors |
+| Production build (`pnpm build`: serverless API bundle and web) | passes |
+| Tests (`pnpm test`) | 228 API tests (13 files, including the route access matrix and hardening tests) and 19 web tests pass |
+| Dependency audit (`pnpm audit --prod`) | no known vulnerabilities |
+| Real database over the read views | all views installed, including `tariffs`: 7,607 customers, 111 linked meters, 160 wallets, 12,999 purchases, 19 staff, 11 roles; 24 `call_centre` tables |
+| Real API | `/api/health` ok; a real super admin signed in and the live audit log (32 entries) pages, searches and resizes correctly |
+| API probes (earlier run) | security headers present; every protected route 401 without a session; cross-origin writes 403; webhook without secret 401; malformed JSON 400; unknown route 404 |
+| UI crawl (earlier run, seeded admin on a mock) | 15 routes, no console errors, no failed requests, no horizontal overflow at phone width |
 
-## Go-live blockers (need your input or access)
-1. **Vercel project environment (Production).** Set `DATABASE_URL`, `BEVERLY_AUTH_URL`, `BEVERLY_AUTH_ANON_KEY`, `BEVERLY_API_URL`, `SESSION_SECRET` and `CRON_SECRET`. The production build refuses to run until they exist. `ALLOWED_ORIGIN` and `API_PUBLIC_URL` default to the production host; set them only for a custom domain.
-3. **Production hardening.** The Vercel Function forces `NODE_ENV=production` (Secure cookies). Keep `SESSION_TTL_MINUTES=480` and `TRUST_PROXY_HOPS=1` (the defaults) unless the topology changes, and use a fresh random `SESSION_SECRET` that is not reused anywhere else.
-3. **Production environment.** `NODE_ENV=production` (enables Secure cookies), exact `ALLOWED_ORIGIN`, a fresh random `SESSION_SECRET` (32+ chars, not reused), `TRUST_PROXY_HOPS` equal to the proxies in front of the API (Vercel rewrite = 1), `SESSION_TTL_MINUTES=480`.
-4. **Carrier.** `AT_WEBHOOK_SECRET`, Africa's Talking credentials and virtual number, callback URLs registered. The carrier sends the secret in the query string, so rotate it on a schedule.
-5. **Recordings.** Create the `call-recordings` bucket and set `RECORDINGS_STORAGE_URL` / `RECORDINGS_STORAGE_KEY`.
-6. **Scheduler.** Vercel runs `purge` and `verify-audit` daily from `vercel.json` through `GET /api/cron/:job`. `ingest` and `sweep` need to run every minute: use Vercel Pro cron, Supabase Cron or any scheduler calling the same endpoint with the `CRON_SECRET` bearer token. Without them recordings are not ingested and alerts are not raised.
-7. **Super admin sign-in.** Confirm on the real project: the user's `public.users` row has `role_key = super-admin` and `portal_access` includes `call`. The API now logs the exact refusal reason.
+## Fixed during the audit
+| Severity | Finding | Fix |
+|---|---|---|
+| High | Login rate limit could be bypassed: any `X-Forwarded-For` was trusted (12 spoofed attempts all got through). | Only the proxies we run are trusted: `TRUST_PROXY_HOPS`, default 1. Test covers it. |
+| High | `zod` 3.x advisory (GHSA-mrhx-c7xc-m3w5). | Upgraded to zod 4.6.x. |
+| Medium | Session cookie was signed, not encrypted, so the Beverly token inside was readable by the cookie holder. | A256GCM-encrypted session. |
+| Medium | 5xx replies could carry internal error text. | Fixed message for 5xx, detail goes to the log only. |
+| Medium | Carrier webhook secret (`?secret=`) was written to request logs. | Query secrets are redacted in logs. |
+| Low | 1 MB default body limit. | 256 KB. |
+| Functional | Admin console got 403 on `GET /api/callbacks`. | Admins may read the queue (read-only). |
+| Config | Weak CSP, no HSTS or COOP/CORP. | Tightened in `vercel.json`. |
+| Config | Half-configured production deploys. | `scripts/check-deploy.mjs` now refuses a production build unless `DATABASE_URL`, `BEVERLY_AUTH_URL`, `BEVERLY_AUTH_ANON_KEY`, `BEVERLY_API_URL`, `SESSION_SECRET` (32+ chars) and `CRON_SECRET` (16+ chars) are set. |
+| Operations | Audit log showed only the latest 50 rows. | Server-side pagination and search (`GET /api/audit?page&pageSize&q`), shown as a table or cards. |
 
-## Decisions to make
-- **Station scope.** `CALL_STATION_SCOPE` defaults to `off`: every agent can find any customer. If agents should only see their own stations, set it to `on` (data-minimisation under NDPA).
-- **8-hour sessions have no server-side revocation.** Logout clears the cookie, but a stolen cookie works until it expires. Acceptable for a locked-down desk; for admins consider a shorter lifetime or a revocation list.
-- The Beverly access token held in the session may expire before 8 hours (set by Beverly). The default database read mode does not depend on it.
+## Deployment shape (as built)
+Static web app plus the API as one Vercel Function (`api/index.mjs`, 30 s limit) in the same project, so the session cookie is first-party. `/api/*` is rewritten to the function. `ALLOWED_ORIGIN` and `API_PUBLIC_URL` default to the Vercel URL unless set; set them explicitly if you use a custom domain.
 
-## What was checked
-- Typecheck and production build pass. 214 API tests (including the route access matrix and the new hardening tests) and 19 web tests pass (re-run 2026-11-16 after restoring the suite).
-- Black-box probes of the running API: security headers present, every protected route returns 401 without a session, cross-origin writes return 403, webhook without secret returns 401, malformed JSON returns 400, unknown route returns 404.
-- Crawl of 15 routes (all screens and admin sections) as the seeded test admin, desktop and phone width: no console errors, no failed requests (after fix 7), no horizontal overflow on phones.
-- Tap targets under 34px on phones were enlarged to 40px on touch devices.
+## Blockers (need your access or input)
+1. **Production environment variables in Vercel.** The five required by the build guard above plus `CRON_SECRET`, and the optional ones you use: `AT_WEBHOOK_SECRET`, `AT_API_KEY`, `AT_USERNAME`, `AT_VIRTUAL_NUMBER`, `RECORDINGS_STORAGE_URL`, `RECORDINGS_STORAGE_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `TRUST_PROXY_HOPS` (1 behind Vercel). Your local `.env` still has `NODE_ENV=development` and lacks `CRON_SECRET`, `API_PUBLIC_URL` and the three `AT_*` carrier keys; production values live in Vercel and were not checked.
+2. **Scheduled jobs are incomplete.** `vercel.json` schedules only `purge` (02:00) and `verify-audit` (02:30), both daily. The `ingest` (recordings) and `sweep` (notifications) jobs exist at `/api/cron/:job` but are not scheduled, and they were designed to run every minute. Vercel's plan limits decide whether per-minute crons are possible; otherwise use Supabase Cron or another scheduler that sends `Authorization: Bearer <CRON_SECRET>`. Until then recordings are not ingested.
+3. **Carrier.** Africa's Talking credentials, virtual number, and callback URLs pointing at the production `API_PUBLIC_URL`.
+4. **Recordings bucket.** Create or confirm the `call-recordings` bucket (credentials are set locally; the bucket itself was not checked).
 
-## Note on tests
-The test suite and mock server are kept in the repo and run in CI (`pnpm test`), so the fixes above stay protected by regression tests. An earlier working-tree change removed them at the owner's request; it was set aside in a git stash rather than committed.
+## Decisions and risks
+- **Rate limiting is per function instance.** `@fastify/rate-limit` uses its in-memory store. On Vercel each instance counts separately, so the 8 per minute login limit is approximate. For a hard limit use a shared store (for example Upstash Redis).
+- **Station scope.** `CALL_STATION_SCOPE` is unset, so it defaults to `off`: every agent can search every customer. Set `on` if agents should only see their own stations.
+- **8-hour sessions cannot be revoked server-side.** Logout clears the cookie, but a stolen cookie works until it expires. Consider a shorter lifetime for admins.
+- **Beverly token lifetime.** The Beverly access token inside the session may expire before 8 hours. The default database read mode does not depend on it.
 
-## Not verified (cannot be done from a development machine)
-- Sign-in and data against the **real** Beverly project (needs a staff password). Agent and supervisor roles were covered by the API access matrix, not clicked through.
-- End-to-end telephony: IVR, dialling, recordings ingest, SMS, WebRTC token. The browser softphone and supervisor media bridge are **not built**.
-- Playwright e2e (needs a free port 5199 and Edge; run it in CI or locally on a clean machine).
-- Docker image build and run, load test, backup and restore drill, uptime and alerting (monitor `GET /api/health`).
+## Not built (per `ARCHITECTURE.md`)
+- Browser softphone bound to the carrier SDK.
+- Supervisor listen, whisper and barge media bridge (recorded and audited only).
+- Real queue routing and agent dialling: inbound calls get a hold message until calls are assigned to agents.
+- Load test.
 
-## Housekeeping
-- CI now runs `pnpm audit --prod --audit-level=high`. Add an e2e job and a Docker build job when a runner with a browser is available.
-- The Docker image installs dev dependencies too; add `--prod` to the install once the build is tested.
+## Not verified
+- The deployed production site (no production URL was exercised).
+- Calls, SMS, recordings and ratings end to end through the carrier.
+- Agent and supervisor screens against real data (the click-through used a seeded admin on a mock).
+- The Dockerfile in `apps/api` (the Vercel deployment does not use it), backups and restore, uptime monitoring.
+
+## Smoke test after deploy
+1. `GET /api/health` returns `{"status":"ok"}`.
+2. Sign in as the super admin, an agent and a supervisor; each lands on its own screen and cannot open the others' routes.
+3. Admin → System: connections show Connected, retention shows On schedule, the audit log loads and Verify reports an intact chain.
+4. Place a test call and confirm it appears in the pipeline, then check the recording appears (needs the `ingest` schedule).
+5. Trigger `GET /api/cron/purge` with the bearer secret and confirm a 200 with a result.
