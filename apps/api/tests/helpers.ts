@@ -80,6 +80,9 @@ export function makeFakes(configured = true): Fakes {
 }
 
 /** Beverly stub: sign-on, the staff profile row, customers, purchases and the staff list. */
+export const PHOTO_CALLS: string[] = []
+export const PHOTO_BASE = 'https://auth.test/storage/v1/object/public/wallet-profile-pictures/'
+export const PHOTO_URL = `${PHOTO_BASE}staff/me/1-photo.jpg`
 export function beverlyFetch(): ReturnType<typeof vi.fn> {
   return vi.fn(async (url: string, init?: RequestInit) => {
     const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status })
@@ -90,6 +93,12 @@ export function beverlyFetch(): ReturnType<typeof vi.fn> {
       return json({ access_token: `tok-${email}`, user: { id: uid(name), user_metadata: { full_name: name } } })
     }
     if (url.includes('/auth/v1/health')) return json({ ok: true })
+    // Beverly's staff profile-picture flow and its public bucket
+    if (url.includes('/api/v1/admin/profile-picture/upload-url')) { PHOTO_CALLS.push('upload-url'); return json({ path: 'staff/me/1-photo.jpg', signed_url: 'https://auth.test/storage/v1/object/upload/sign/wallet-profile-pictures/staff/me/1-photo.jpg?token=t' }) }
+    if (url.includes('/storage/v1/object/upload/sign/')) { PHOTO_CALLS.push(`put:${(init?.headers as Record<string, string>)['content-type']}:${(init?.body as Buffer).length}`); return new Response('{}', { status: 200 }) }
+    if (url.includes('/api/v1/admin/profile-picture/activate')) { PHOTO_CALLS.push('activate'); return json({ profile_picture_url: PHOTO_URL }) }
+    if (url.includes('/api/v1/admin/profile-picture') && init?.method === 'DELETE') { PHOTO_CALLS.push('delete'); return json({ ok: true }) }
+    if (url.startsWith(PHOTO_BASE)) return new Response(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]), { status: 200, headers: { 'content-type': 'image/jpeg' } })
     if (url.includes('/rest/v1/users')) {
       const email = NAME_OF.get(/auth_user_id=eq\.([^&]+)/.exec(url)?.[1] ?? '') ?? ''
       return json([{ role_key: ROLE_OF(email), portal_access: email.startsWith('nocall') ? ['crm'] : ['call'] }])
@@ -158,7 +167,7 @@ export async function boot(over: Record<string, string> = {}, configured = true)
       resetStaffCache(); resetSupport()
       await pool.query(`truncate call_centre.calls, call_centre.tickets, call_centre.callbacks, call_centre.recordings, call_centre.agent_presence,
         call_centre.notifications, call_centre.notification_reads, call_centre.push_subscriptions, call_centre.sms_log, call_centre.settings,
-        call_centre.retention_runs, call_centre.shift_handovers, call_centre.coaching_log, call_centre.customer_notes, call_centre.webhook_heartbeat restart identity cascade`)
+        call_centre.retention_runs, call_centre.shift_handovers, call_centre.coaching_log, call_centre.customer_notes, call_centre.webhook_heartbeat, call_centre.shift_overrides, call_centre.agent_rotation, call_centre.rotations, call_centre.shift_templates restart identity cascade`)
       await pool.query('alter sequence call_centre.ticket_ref_seq restart with 2042')
       fakes.provider.sms.length = 0; fakes.provider.calls.length = 0; fakes.storage.uploaded.length = 0; fakes.storage.removed.length = 0; fakes.pushed.length = 0
     },

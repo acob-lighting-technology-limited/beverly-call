@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import type { FastifyPluginAsync } from 'fastify'
 import { loginRequestSchema } from '@beverly-call/shared'
 import { COOKIE, type AppDeps } from '../app.js'
@@ -30,5 +31,11 @@ export const authRoutes = ({ env, pool, fetchImpl }: AppDeps): FastifyPluginAsyn
     return reply.clearCookie(COOKIE, cookieOpts).code(204).send()
   })
 
-  app.get('/session', async (req, reply) => (req.session ? req.session.user : reply.code(401).send({ error: 'Signed out' })))
+  /** The signed-in user, plus a short token for their Beverly profile photo (it changes when the photo does, so browsers refetch). */
+  app.get('/session', async (req, reply) => {
+    if (!req.session) return reply.code(401).send({ error: 'Signed out' })
+    const r = await pool.query<{ u: string | null }>('select profile_picture_url as u from call_centre_read.staff where auth_user_id::text = $1 or user_id::text = $1 limit 1', [req.session.user.id]).catch(() => ({ rows: [] as { u: string | null }[] }))
+    const url = r.rows[0]?.u || null
+    return { ...req.session.user, photoVersion: url ? createHash('sha1').update(url).digest('hex').slice(0, 10) : null }
+  })
 }

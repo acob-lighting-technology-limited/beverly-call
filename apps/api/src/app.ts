@@ -1,3 +1,4 @@
+import { STATUS_CODES } from 'node:http'
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify'
 import helmet from '@fastify/helmet'
 import cookie from '@fastify/cookie'
@@ -15,6 +16,7 @@ import { monitorRoutes } from './routes/monitor-routes.js'
 import { customerRoutes } from './routes/customer-routes.js'
 import { bindingRoutes } from './routes/binding-routes.js'
 import { agentRoutes } from './routes/agent-routes.js'
+import { shiftRoutes } from './routes/shift-routes.js'
 import { adminRoutes } from './routes/admin-routes.js'
 import { webhookRoutes } from './routes/webhook-routes.js'
 import formbody from '@fastify/formbody'
@@ -57,7 +59,25 @@ export function originAllowed(origin: string | undefined, allowed: string, nodeE
 
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const { env } = deps
-  const app = Fastify({ logger: { level: env.NODE_ENV === 'test' ? 'silent' : 'info', redact: ['req.headers.cookie', 'req.headers.authorization'] }, trustProxy: true })
+  const app = Fastify({
+    logger: {
+      level: env.NODE_ENV === 'test' ? 'silent' : 'info',
+      redact: ['req.headers.cookie', 'req.headers.authorization'],
+      // Carrier webhooks authenticate with ?secret=...; never write it (or any token in a query string) to the logs.
+      serializers: { req: (r) => ({ method: r.method, url: r.url?.replace(/([?&](?:secret|token|key|apikey)=)[^&]*/gi, '$1[redacted]'), host: r.host, remoteAddress: r.ip }) },
+    },
+    // Trust only the proxies we actually run (see TRUST_PROXY_HOPS), so X-Forwarded-For cannot be spoofed to dodge rate limits.
+    trustProxy: (_address: string, hop: number): boolean => hop < env.TRUST_PROXY_HOPS,
+    // Every JSON body here is small (notes, replies, filters); a tight cap bounds memory per request.
+    bodyLimit: 262_144,
+  })
+
+  // Never leak internals: 5xx replies carry a fixed message, the detail goes to the log only. Client errors keep their message.
+  app.setErrorHandler((err: Error & { statusCode?: number }, req, reply) => {
+    const status = typeof err.statusCode === 'number' && err.statusCode >= 400 ? err.statusCode : 500
+    if (status >= 500) { req.log.error({ err }, 'request failed'); return reply.code(status).send({ error: 'Internal error' }) }
+    return reply.code(status).send({ statusCode: status, error: STATUS_CODES[status] ?? 'Error', message: err.message })
+  })
 
   // Accept an empty body on JSON requests (POSTs like logout or start carry none) instead of failing with 400.
   app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
@@ -96,6 +116,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(customerRoutes(deps), { prefix: '/api' })
   await app.register(bindingRoutes(deps), { prefix: '/api' })
   await app.register(agentRoutes(deps), { prefix: '/api' })
+  await app.register(shiftRoutes(deps), { prefix: '/api' })
   await app.register(adminRoutes(deps), { prefix: '/api' })
   await app.register(webhookRoutes(deps), { prefix: '/api' })
   return app

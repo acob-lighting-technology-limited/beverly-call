@@ -92,9 +92,24 @@ const messages: Record<string, any>[] = [
   { id: uid('m2'), ticket_id: TICKET2, sender_actor_type: 'customer', sender_name: 'Ngozi Obi', body: 'How do I link a second meter?', is_internal: false, created_at: new Date(Date.now() - 2 * 864e5).toISOString() },
 ]
 const names = new Map<string, string>()
+const photos = new Map<string, { type: string; bytes: Buffer }>()
+const photoKey = (u: string): string => u.split('wallet-profile-pictures/')[1]!.split('?')[0]!
 const ROLE_KEY = (n: string) => (n.startsWith('agent') ? 'custom-call-centre-agent' : n.startsWith('sup') ? 'custom-call-centre-supervisor' : 'super-admin')
 const fetchImpl = async (url: string, init?: RequestInit): Promise<Response> => {
   const json = (b: unknown) => new Response(JSON.stringify(b), { status: 200 })
+  // Beverly's staff profile-picture flow: upload slot, upload, activate (writes the staff row), and the public bucket
+  const bearerUid = (): string => uid(String((init?.headers as Record<string, string> | undefined)?.authorization ?? '').replace(/^Bearer dev-/, ''))
+  if (url.includes('/api/v1/admin/profile-picture/upload-url')) return json({ path: `staff/${bearerUid()}/${Date.now()}-photo.jpg`, signed_url: `https://beverly.dev.test/storage/v1/object/upload/sign/wallet-profile-pictures/staff/${bearerUid()}/photo.jpg?token=dev` })
+  if (url.includes('/storage/v1/object/upload/sign/')) { photos.set(photoKey(url), { type: String((init?.headers as Record<string, string>)['content-type']), bytes: init?.body as Buffer }); return new Response('{}', { status: 200 }) }
+  if (url.includes('/api/v1/admin/profile-picture/activate')) {
+    const id = bearerUid()
+    const publicUrl = `https://beverly.dev.test/storage/v1/object/public/wallet-profile-pictures/staff/${id}/photo.jpg?v=${Date.now()}`
+    const upd = await pool.query('update public.users set profile_picture_url = $2 where auth_user_id::text = $1', [id, publicUrl])
+    if (!upd.rowCount) await pool.query(`insert into public.users (auth_user_id, user_name, email, role_key, portal_access, profile_picture_url) values ($1,'Dev user','dev@x.test','super-admin','{call}',$2)`, [id, publicUrl])
+    return json({ profile_picture_url: publicUrl })
+  }
+  if (url.includes('/api/v1/admin/profile-picture') && init?.method === 'DELETE') { await pool.query('update public.users set profile_picture_url = null where auth_user_id::text = $1', [bearerUid()]); return json({ ok: true }) }
+  if (url.includes('/storage/v1/object/public/wallet-profile-pictures/')) { const p = photos.get(photoKey(url)); return p ? new Response(p.bytes as never, { status: 200, headers: { 'content-type': p.type } }) : new Response('', { status: 404 }) }
   if (url.includes('/auth/v1/token')) { const n = String((JSON.parse(String(init?.body)) as { email: string }).email).split('@')[0]!; names.set(uid(n), n); return json({ access_token: `dev-${n}`, user: { id: uid(n), user_metadata: { full_name: n } } }) }
   if (url.includes('/auth/v1/health')) return json({ ok: true })
   const sup = /admin\/support\/tickets(?:\/([^/?]+))?(\/messages)?/.exec(url)

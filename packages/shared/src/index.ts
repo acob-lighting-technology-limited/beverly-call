@@ -10,7 +10,7 @@ export type Role = z.infer<typeof roleSchema>
 export const screenIdSchema = z.enum(['call', 'cb', 'tix', 'cust', 'wall', 'cases', 'rec', 'rep', 'admin'])
 export type ScreenId = z.infer<typeof screenIdSchema>
 
-export const sessionUserSchema = z.object({ id: z.string().min(1), name: z.string().min(1), role: roleSchema })
+export const sessionUserSchema = z.object({ id: z.string().min(1), name: z.string().min(1), role: roleSchema, photoVersion: z.string().nullable().optional() })
 export type SessionUser = z.infer<typeof sessionUserSchema>
 
 export const loginRequestSchema = z.object({ email: z.string().email().max(254), password: z.string().min(1).max(256) })

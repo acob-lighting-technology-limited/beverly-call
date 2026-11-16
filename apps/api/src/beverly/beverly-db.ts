@@ -26,6 +26,31 @@ export async function stationScope(pool: Pool, actor: Actor): Promise<string[] |
   return [...set]
 }
 
+/**
+ * Wallet owners for one customer: the customer themselves, plus any Beverly customer account (the wallet app's sign-ups) that shares their
+ * email or phone, or a number bound to them in Beverly Call. A CRM customer is often a different row from the person who signed up in the wallet.
+ */
+const walletOwners = (id: string): string => `(
+  select ${id}::uuid
+  union select c2.id from call_centre_read.customers me join call_centre_read.customers c2 on c2.id <> me.id
+    where me.id = ${id}::uuid and (
+      (nullif(btrim(me.email), '') is not null and lower(btrim(c2.email)) = lower(btrim(me.email)))
+      or (length(right(regexp_replace(coalesce(me.phone, ''), '\\D', '', 'g'), 10)) = 10
+          and right(regexp_replace(coalesce(c2.phone, ''), '\\D', '', 'g'), 10) = right(regexp_replace(coalesce(me.phone, ''), '\\D', '', 'g'), 10)))
+  union select c3.id from call_centre_read.directory_phones dp join call_centre_read.customers c3
+    on right(regexp_replace(coalesce(c3.phone, ''), '\\D', '', 'g'), 10) = dp.phone_tail where dp.customer_id = ${id}::uuid)`
+/**
+ * For lists: the few customers who own a wallet are found once, then each listed customer is matched to them by id, email, phone, or a bound number.
+ * (Matching per listed row against all customers took a minute on the live data; against the wallet owners it is instant.)
+ */
+const WALLET_CTE = `with wc as (
+  select c.id, lower(nullif(btrim(c.email), '')) as email, nullif(right(regexp_replace(coalesce(c.phone, ''), '\\D', '', 'g'), 10), '') as tail, w.ledger_balance_minor as bal
+  from call_centre_read.wallets w join call_centre_read.customers c on c.id = w.owner_id where w.owner_type = 'customer')`
+const wcMatch = (id: string, email: string, tail: string): string => `(wc.id = ${id}
+  or (wc.email is not null and wc.email = lower(btrim(${email})))
+  or (wc.tail is not null and wc.tail = ${tail})
+  or exists (select 1 from call_centre.phone_bindings b where b.customer_id = ${id} and b.status = 'applied' and b.phone_tail = wc.tail))`
+
 const escapeLike = (s: string): string => s.replace(/[\\%_]/g, (c) => `\\${c}`)
 
 interface CustomerRow { id: string; full_name: string | null; phone: string | null; ledger_balance_minor: string | null; stations: string[] | null; meter: string | null }
@@ -38,11 +63,12 @@ export async function fetchCustomersDb(pool: Pool, actor: Actor, q: string, limi
   const digitLike = digits.length >= 7 ? `%${digits.slice(-10)}%` : null
   if (actor.scoped === false) return fetchDirectoryDb(pool, like, digits.length >= 7 ? digits.slice(-10) : null, limit)
   const r = await pool.query<CustomerRow>(
-    `select c.id, c.full_name, c.phone, w.ledger_balance_minor,
+    `${WALLET_CTE}
+     select c.id, c.full_name, c.phone,
+            (select max(wc.bal) from wc where ${wcMatch('c.id', 'c.email', "right(regexp_replace(coalesce(c.phone, ''), '\\D', '', 'g'), 10)")}) as ledger_balance_minor,
             (select array_agg(distinct upper(m.station_id)) filter (where m.station_id is not null) from call_centre_read.customer_meters m where m.customer_id = c.id) as stations,
             (select m.meter_id from call_centre_read.customer_meters m where m.customer_id = c.id order by (m.status = 'approved') desc, m.created_at limit 1) as meter
      from call_centre_read.customers c
-     left join call_centre_read.wallets w on w.owner_type = 'customer' and w.owner_id = c.id
      where ($1::text is null
             or c.full_name ilike $1 or c.phone ilike $1 or c.email ilike $1
             or ($2::text is not null and regexp_replace(coalesce(c.phone, ''), '\\D', '', 'g') like $2)
@@ -65,7 +91,14 @@ interface DirRow { id: string; full_name: string | null; phone: string | null; m
  */
 export async function fetchDirectoryDb(pool: Pool, like: string | null, tail: string | null, limit = 50): Promise<Customer[]> {
   const r = await pool.query<DirRow>(
-    `select d.customer_id as id, max(d.full_name) as full_name,
+    `${WALLET_CTE},
+     -- choose the page of customers first, so meters, tariffs and wallets are only worked out for them
+     pick as (select d.customer_id from call_centre_read.directory d
+      where ($1::text is null
+             or d.full_name ilike $1 or d.phone ilike $1 or d.email ilike $1 or d.meter_sn ilike $1 or d.account_no ilike $1 or d.station_id ilike $1
+             or ($2::text is not null and exists (select 1 from call_centre_read.directory_phones p where p.customer_id = d.customer_id and p.phone_tail = $2)))
+      group by d.customer_id order by (max(d.phone) is not null) desc, max(d.full_name) nulls last limit $3)
+     select d.customer_id as id, max(d.full_name) as full_name,
             coalesce(max(d.phone), (select '0' || p.phone_tail from call_centre_read.directory_phones p where p.customer_id = d.customer_id limit 1)) as phone,
             coalesce((array_agg(d.meter_sn order by (d.meter_status = 'active') desc, d.meter_sn) filter (where d.meter_sn is not null))[1],
                      (select m.meter_id from call_centre_read.customer_meters m where m.customer_id = d.customer_id order by (m.status = 'approved') desc, m.created_at limit 1)) as meter,
@@ -74,16 +107,13 @@ export async function fetchDirectoryDb(pool: Pool, like: string | null, tail: st
                      (select array_agg(distinct upper(m.station_id)) filter (where m.station_id is not null) from call_centre_read.customer_meters m where m.customer_id = d.customer_id),
                      case when max(d.meter_address) is null then null else array[max(d.meter_address)] end) as stations,
             (array_agg(coalesce(t.tariff_name, d.tariff_name, d.tariff_id)) filter (where d.tariff_id is not null or d.tariff_name is not null))[1] as tariff,
-            max(w.ledger_balance_minor) as ledger_balance_minor
+            max(wc.bal) as ledger_balance_minor
      from call_centre_read.directory d
-     left join call_centre_read.wallets w on w.owner_type = 'customer' and w.owner_id = d.customer_id
+     join pick on pick.customer_id = d.customer_id
+     left join wc on ${wcMatch('d.customer_id', 'd.email', 'd.phone_tail')}
      left join call_centre_read.tariffs t on t.tariff_id = d.tariff_id and t.station_scope = '*'
-     where ($1::text is null
-            or d.full_name ilike $1 or d.phone ilike $1 or d.email ilike $1 or d.meter_sn ilike $1 or d.account_no ilike $1 or d.station_id ilike $1
-            or ($2::text is not null and exists (select 1 from call_centre_read.directory_phones p where p.customer_id = d.customer_id and p.phone_tail = $2)))
      group by d.customer_id
-     order by (max(d.phone) is not null) desc, max(d.full_name) nulls last
-     limit $3`, [like, tail, Math.min(limit, 200)])
+     order by (max(d.phone) is not null) desc, max(d.full_name) nulls last`, [like, tail, Math.min(limit, 200)])
   return r.rows.map((x) => ({
     id: x.id, name: x.full_name ?? '', meter: x.meter ?? '', phone: x.phone ?? '', area: (x.stations ?? []).join(', '),
     accountType: x.account_type ?? 'Prepaid', balance: x.ledger_balance_minor === null ? null : Number(x.ledger_balance_minor) / 100,
@@ -143,7 +173,7 @@ export async function fetchWalletDb(pool: Pool, actor: Actor, customerId: string
     if (!seen.rowCount) return null
   }
   const r = await pool.query<{ status: string; currency: string; ledger_balance_minor: string | null; active_holds_minor: string | null; available_balance_minor: string | null }>(
-    "select status, currency, ledger_balance_minor, active_holds_minor, available_balance_minor from call_centre_read.wallets where owner_type = 'customer' and owner_id = $1 limit 1", [customerId])
+    `select status, currency, ledger_balance_minor, active_holds_minor, available_balance_minor from call_centre_read.wallets where owner_type = 'customer' and owner_id in ${walletOwners('$1')} order by (status = 'active') desc, ledger_balance_minor desc nulls last limit 1`, [customerId])
   const w = r.rows[0]
   if (!w) return null
   return { status: w.status, currency: w.currency, balance: Number(w.ledger_balance_minor ?? 0) / 100, holds: Number(w.active_holds_minor ?? 0) / 100, available: Number(w.available_balance_minor ?? 0) / 100 }

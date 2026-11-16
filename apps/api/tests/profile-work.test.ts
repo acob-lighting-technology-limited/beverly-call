@@ -59,3 +59,46 @@ describe('agent profile and analytics', () => {
     expect((await h.get(`/api/agents/${uid('nobody')}/profile`, sup)).status).toBe(404)
   })
 })
+
+describe('wallet shown only when a Beverly customer wallet is bound by email or phone', () => {
+  const CRM_EMAIL = uid('wl-crm-email'); const APP_EMAIL = uid('wl-app-email')
+  const CRM_PHONE = uid('wl-crm-phone'); const APP_PHONE = uid('wl-app-phone')
+  const LONER = uid('wl-loner')
+
+  beforeAll(async () => {
+    const q = (s: string, p: unknown[] = []) => h.pool.query(s, p)
+    await q(`insert into public.customers (id, full_name, email, phone) values
+      ($1,'Crm Email Person','Ada@Example.test',null), ($2,'Ada (wallet app)','ada@example.test',null),
+      ($3,'Crm Phone Person',null,'+234 803 111 3333'), ($4,'Phone (wallet app)',null,'08031113333'),
+      ($5,'No Wallet Person','nobody@example.test','08099990000')`, [CRM_EMAIL, APP_EMAIL, CRM_PHONE, APP_PHONE, LONER])
+    await q(`insert into public.wallets (id, owner_type, owner_id) values ($1,'customer',$2), ($3,'customer',$4)`, [uid('wl-w1'), APP_EMAIL, uid('wl-w2'), APP_PHONE])
+    await q(`insert into public.wallet_balances_stub values ($1, 450000, 0, 450000), ($2, 120000, 20000, 100000)`, [uid('wl-w1'), uid('wl-w2')])
+  })
+
+  it('finds the wallet through a shared email, ignoring case', async () => {
+    const a = await h.as('agent1@x.test')
+    expect((await h.get(`/api/customers/${CRM_EMAIL}/wallet`, a)).json).toMatchObject({ balance: 4500, available: 4500 })
+    expect((await h.get('/api/customers?q=Crm%20Email', a)).json[0].balance).toBe(4500)
+  })
+
+  it('finds the wallet through a shared phone number in any format', async () => {
+    const a = await h.as('agent1@x.test')
+    expect((await h.get(`/api/customers/${CRM_PHONE}/wallet`, a)).json).toMatchObject({ balance: 1200, holds: 200, available: 1000 })
+    expect((await h.get('/api/customers?q=Crm%20Phone', a)).json[0].balance).toBe(1200)
+  })
+
+  it('finds the wallet through a number bound in Beverly Call', async () => {
+    const a = await h.as('agent1@x.test'); const sup = await h.as('sup1@x.test')
+    await h.pool.query(`insert into public.meters (meter_sn, customer_id, site_code) values ('LN-1',$1,'abuja')`, [LONER])
+    await h.pool.query(`update public.customers set phone = '08031113333' where id = $1`, [APP_PHONE])   // the wallet app customer
+    const b = await h.send('POST', '/api/bindings', a, { phone: '0803 111 3333', customerId: LONER, meters: ['LN-1'], checks: { meter: true, name: true, lastPurchase: false, address: false } })
+    expect(b.status).toBe(409)   // that number already belongs to the wallet customer, so it cannot also be bound to someone else
+    expect((await h.get(`/api/customers/${LONER}/wallet`, sup)).status).toBe(404)
+  })
+
+  it('shows nothing when no wallet is linked', async () => {
+    const a = await h.as('agent1@x.test')
+    expect((await h.get(`/api/customers/${LONER}/wallet`, a)).status).toBe(404)
+    expect((await h.get('/api/customers?q=No%20Wallet', a)).json[0].balance).toBeNull()
+  })
+})

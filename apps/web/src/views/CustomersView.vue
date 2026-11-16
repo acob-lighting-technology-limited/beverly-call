@@ -64,7 +64,7 @@ const initials = (n: string) => n.split(' ').map((w) => w[0] ?? '').join('').sli
 const hue = (n: string): number => [...n].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 17)
 const stateOf = (c: Customer): 'low' | 'none' | 'ok' => (isLow(c) ? 'low' : c.balance === null ? 'none' : 'ok')
 const stateLabel = (c: Customer): string => ({ low: 'Low wallet', none: 'No wallet', ok: 'All good' })[stateOf(c)]
-const money = (n: number | null) => (n === null ? 'Bill account' : `NGN ${n.toLocaleString('en-US')}`)
+const money = (n: number | null) => (n === null ? '---' : `NGN ${n.toLocaleString('en-US')}`)
 
 /* ---- detail ---- */
 const sel = ref<Customer | null>(null)
@@ -150,7 +150,7 @@ const canCall = computed(() => session.role === 'agent' || session.role === 'sup
             <span v-if="c.accountNo"><Icon name="users" /><em>{{ c.accountNo }}</em></span>
           </span>
           <span class="cx-tags"><i v-if="c.area">{{ c.area }}</i><i v-if="c.tariff">{{ c.tariff }}</i></span>
-          <span class="cx-bal"><small>{{ c.balance === null ? 'Wallet' : 'Wallet balance' }}</small><b :class="{ none: c.balance === null }">{{ c.balance === null ? 'Not set up' : money(c.balance) }}</b></span>
+          <span class="cx-bal"><small>{{ c.balance === null ? 'Wallet' : 'Wallet balance' }}</small><b :class="{ none: c.balance === null }">{{ money(c.balance) }}</b></span>
         </button>
       </div>
       <div v-else class="c"><div class="scroll dv-table"><table class="rt cust-t"><thead><tr><th>Customer</th><th>Meter</th><th>Phone</th><th>Area</th><th>Balance</th><th>Status</th></tr></thead>
@@ -171,7 +171,7 @@ const canCall = computed(() => session.role === 'agent' || session.role === 'sup
         <div class="dr">
           <div><Icon name="bolt" /><div class="tx"><small>Meter number</small><b>{{ meterNo }}</b></div><button aria-label="Copy meter" :disabled="!detail?.meters.length" @click="copy(meterNo)"><Icon name="copy" /></button></div>
           <div><Icon name="phone" /><div class="tx"><small>Phone</small><b>{{ show(sel.phone) }}</b></div><button aria-label="Copy phone" @click="copy(sel.phone)"><Icon name="copy" /></button></div>
-          <div><Icon name="wallet" /><div class="tx"><small>{{ sel.balance === null ? 'Account type' : 'Wallet balance' }}</small><b>{{ money(sel.balance) }}</b></div></div>
+          <div><Icon name="wallet" /><div class="tx"><small>Wallet balance</small><b>{{ money(sel.balance) }}</b></div></div>
           <div><Icon name="clock" /><div class="tx"><small>Last contacted</small><b>{{ lastContacted }}</b></div></div></div>
       </div>
       <div v-hover-scroll class="jm" role="navigation" aria-label="Jump to section">
@@ -187,11 +187,12 @@ const canCall = computed(() => session.role === 'agent' || session.role === 'sup
           <p v-if="full && !full.timeline.length" style="color: var(--mut)">Nothing recorded for this customer yet.</p></div>
       </div>
       <div class="col s4 w2">
-        <CustomerProfileCard v-if="profile" :profile="profile" />
-        <div v-if="wallet" class="c fr"><div class="hd"><Icon name="wallet" /><b>Wallet</b><span class="pill" :class="wallet.status === 'active' ? 'ok' : 'ye'">{{ wallet.status }}</span></div>
-          <div class="row"><span>Balance</span><b style="font-weight: 400">NGN {{ wallet.balance.toLocaleString('en-US') }}</b></div>
-          <div class="row"><span>On hold</span><span>NGN {{ wallet.holds.toLocaleString('en-US') }}</span></div>
-          <div class="row"><span>Available</span><span>NGN {{ wallet.available.toLocaleString('en-US') }}</span></div></div>
+        <CustomerProfileCard v-if="profile" :profile="profile" :customer-id="sel.id" />
+        <div class="c fr"><div class="hd"><Icon name="wallet" /><b>Wallet</b><span class="pill" :class="wallet ? (wallet.status === 'active' ? 'ok' : 'ye') : 'vi'">{{ wallet ? wallet.status : 'No wallet' }}</span></div>
+          <div class="row"><span>Balance</span><b style="font-weight: 400">{{ wallet ? `NGN ${wallet.balance.toLocaleString('en-US')}` : '---' }}</b></div>
+          <div class="row"><span>On hold</span><span>{{ wallet ? `NGN ${wallet.holds.toLocaleString('en-US')}` : '---' }}</span></div>
+          <div class="row"><span>Available</span><span>{{ wallet ? `NGN ${wallet.available.toLocaleString('en-US')}` : '---' }}</span></div>
+          <p v-if="!wallet" style="color: var(--mut); font-size: 12px; margin: 6px 0 0">No Beverly customer wallet is linked to this customer's email or phone number.</p></div>
         <div id="sx-t" class="c fr"><div class="hd"><Icon name="chart" /><b>Case stages</b></div>
           <div class="fn"><div v-for="s in STAGES" :key="s[0]" :style="{ width: `${s[2]}%` }"><span>{{ s[0] }}</span><b>{{ s[1] }}</b></div></div>
           </div>

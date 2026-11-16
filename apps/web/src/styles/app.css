@@ -537,3 +537,10 @@ nav[data-admin]{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 55%,transpa
 .cx{justify-items:stretch;justify-content:stretch;align-content:start;align-items:start;width:100%;text-align:left;font-weight:400}
 .cx>*{width:100%;min-width:0}
 .cx-tags i,.cx-meta span{width:auto}
+
+/* stat tiles: two across on phones, four across on desktop (compact, instead of one huge card per number) */
+.stat-grid{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-3)}
+.stat-grid>.c{padding:var(--sp-3)}
+@media (min-width:900px){.stat-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.stat-grid>.c{padding:var(--sp-4)}}
+/* touch: segmented controls and small icon buttons reach a comfortable 40px target */
+@media (pointer:coarse){.ss button,.vt button,.mv button,.adm-ic,.nph .tx,.chs button,.jm button{min-height:40px;min-width:40px}}

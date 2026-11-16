@@ -10,6 +10,7 @@ import StateBanner from '@/components/StateBanner.vue'
 import LineChart from '@/components/charts/LineChart.vue'
 import BarChart from '@/components/charts/BarChart.vue'
 import Donut from '@/components/charts/Donut.vue'
+import StatCard from '@/components/charts/StatCard.vue'
 import { api } from '@/lib/api'
 import { useResource } from '@/lib/use-resource'
 import { clock, pad2, shortDate } from '@/lib/format'
@@ -18,6 +19,10 @@ const wall = useResource(() => api<WallSnapshot>('/wall'))
 const presence = useResource(() => api<PresenceRow[]>('/presence'))
 const today = useResource(() => api<Report>('/reports?range=1'))
 const calls24 = useResource(() => api<Metric>('/metrics/calls?period=24h'))
+const handle24 = useResource(() => api<Metric>('/metrics/handle_time?period=24h'))
+const sl24 = useResource(() => api<Metric>('/metrics/service_level?period=24h'))
+const aband24 = useResource(() => api<Metric>('/metrics/abandoned?period=24h'))
+const spark = (m: Metric | null): number[] => (m?.series ?? []).map((p) => p.value)
 const callbacks = useResource(() => api<Callback[]>('/callbacks'))
 const cases = useResource(() => api<SupportCase[]>('/cases'))
 const recordings = useResource(() => api<Recording[]>('/recordings'))
@@ -99,24 +104,23 @@ const online = computed(() => agentSegments.value.reduce((a, s) => a + s.value, 
       </ol>
     </div>
 
-    <div class="c s4">
+    <div class="stat-grid">
+      <div class="c"><StatCard icon="phone" label="Calls, 24h" :value="calls24.data.value?.current ?? today.data.value?.calls ?? 0" :delta="calls24.data.value?.deltaPct ?? null" :spark="spark(calls24.data.value)" /></div>
+      <div class="c"><StatCard icon="clock" label="Handle time" :value="handle" :delta="handle24.data.value?.deltaPct ?? null" invert :spark="spark(handle24.data.value)" /></div>
+      <div class="c"><StatCard icon="check" label="Service level" :value="`${w?.serviceLevelPct ?? 0}%`" :delta="sl24.data.value?.deltaPct ?? null" :spark="spark(sl24.data.value)" /></div>
+      <div class="c"><StatCard icon="alert" label="Abandoned" :value="`${w?.abandonedPct ?? 0}%`" :delta="aband24.data.value?.deltaPct ?? null" invert :spark="spark(aband24.data.value)" /></div>
+    </div>
+
+    <div class="c s6">
       <div class="hd"><Icon name="check" /><b>Service level</b></div>
       <Donut :segments="[{ label: 'Within 20s', value: w?.serviceLevelPct ?? 0, color: 'var(--accent)' }, { label: 'Slower', value: 100 - (w?.serviceLevelPct ?? 0), color: 'color-mix(in srgb, var(--text) 18%, transparent)' }]" :center="`${w?.serviceLevelPct ?? 0}%`" sub="answered in time" />
       <div class="row"><span>Abandoned</span><b>{{ w?.abandonedPct ?? 0 }}%</b></div>
       <div class="row"><span>Longest wait</span><b>{{ w?.longestWaitSeconds ?? 0 }}s</b></div>
     </div>
 
-    <div class="c s4">
+    <div class="c s6">
       <div class="hd"><Icon name="users" /><b>Agents online</b></div>
       <Donut :segments="agentSegments.filter((s) => s.value)" :center="String(online)" sub="signed in" />
-    </div>
-
-    <div class="c s4">
-      <div class="hd"><Icon name="clock" /><b>Today</b></div>
-      <div class="row"><span>Calls</span><b>{{ today.data.value?.calls ?? 0 }}</b></div>
-      <div class="row"><span>Average handle time</span><b>{{ handle }}</b></div>
-      <div class="row"><span>Solved on first call</span><b>{{ today.data.value?.firstCallResolvedPct ?? 0 }}%</b></div>
-      <div class="row"><span>Open callbacks</span><b>{{ w?.waitingCallbacks ?? 0 }}</b></div>
     </div>
 
     <div class="c s6">
@@ -125,7 +129,7 @@ const online = computed(() => agentSegments.value.reduce((a, s) => a + s.value, 
     </div>
     <div class="c s6">
       <div class="hd"><Icon name="clock" /><b>Calls per hour, today</b></div>
-      <BarChart :items="hourly" label="Calls per hour today" />
+      <BarChart :items="hourly" :height="150" trend label="Calls per hour today" />
     </div>
 
     <Modal :open="!!detail" :title="detail?.title ?? ''" @close="open = null">

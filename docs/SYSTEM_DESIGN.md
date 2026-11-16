@@ -323,3 +323,16 @@ Each phase ends when its goal is demonstrable and its acceptance checks pass.
 Rules: many numbers per customer, meter or account (labelled owner, spouse, tenant...); one number may cover several meters of the same customer; a number can never belong to two customers; the requester cannot approve their own request; the app role has no other write right on `public`.
 
 **OEM.** The adapters (SparkMeter, Calinmeter) expose only connection test, station list, meter lookup and vend, with no contact update, so the OEM keeps its own phone. Beverly's CRM is the source of truth and Beverly Call reads it, so the binding takes effect in the CRM, Beverly Call and the API at once. If an OEM contact-update call becomes available, it hooks in after `apply_phone_binding`.
+
+## Photos, shifts and the rotation pipeline
+
+**Photos are Beverly's.** A staff member's photo is `public.users.profile_picture_url` in the `wallet-profile-pictures` bucket, the same picture the wallet and CRM show. Beverly Call reads the URL through `call_centre_read.staff` and relays the image (`GET /api/agents/:id/photo`, only from that bucket on the Supabase host). Uploading is Beverly's own verified flow with the person's token: upload slot, upload, activate (Beverly's safety scan runs there). So a photo set here appears in the wallet and CRM, and one set there appears here. Only the person can change their own photo (Beverly's rule); there is no separate copy in Beverly Call.
+
+**Shifts are decided by the admin.** Admin → Shifts holds:
+- *Shift templates*: name, start and end in Nigerian time (an end not after the start runs overnight), colour.
+- *Rotations*: an ordered cycle of weeks starting on a Monday. Each week names a shift (or off) and the weekdays it applies to. Agents move through the cycle and wrap round.
+- *Assignments*: an agent is put on one rotation with a week offset, so a team is staggered (week 1 morning for some, evening for others).
+- *Overrides*: one-day swaps, different shifts or days off. The agent is notified of any change.
+- *Policy* (`shift_policy`): when enforcement is on, call routing offers calls only to agents on shift now, with a grace window either side. Off by default.
+
+`shifts/engine.ts` is a pure module (week of cycle, shift for a day, overnight tails, grace) with unit tests; `shifts/store.ts` loads the data. The weekly roster (`GET /api/shifts/roster`) is for supervisors and admins; agents read their own (`GET /api/shifts/me`), shown as "My shifts" on their profile.

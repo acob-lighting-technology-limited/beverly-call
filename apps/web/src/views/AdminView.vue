@@ -15,6 +15,7 @@ const VIEWS = {
   overview: defineAsyncComponent(() => import('./admin/AdminOverview.vue')),
   analytics: defineAsyncComponent(() => import('./admin/AdminAnalytics.vue')),
   agents: defineAsyncComponent(() => import('./admin/AdminAgents.vue')),
+  shifts: defineAsyncComponent(() => import('./admin/AdminShifts.vue')),
   quality: defineAsyncComponent(() => import('./admin/AdminQuality.vue')),
   people: defineAsyncComponent(() => import('./admin/AdminPeople.vue')),
   settings: defineAsyncComponent(() => import('./admin/AdminSettings.vue')),

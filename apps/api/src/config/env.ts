@@ -22,6 +22,8 @@ const envSchema = z.object({
   LOGIN_RATE_LIMIT: z.coerce.number().int().min(1).max(10000).default(8),
   SESSION_TTL_MINUTES: z.coerce.number().int().min(5).max(720).default(480),
   ALLOWED_ORIGIN: z.string().url(),
+  /** Reverse proxies in front of the API whose X-Forwarded-For is trusted (Vercel rewrite = 1). 0 trusts none and uses the socket address. Never trust more hops than you run: clients could spoof their IP and dodge the rate limits. */
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
   /** Shared secret Africa's Talking sends on voice webhooks. Webhooks are refused when unset. */
   AT_WEBHOOK_SECRET: z.string().min(16).optional(),
   /** Supabase Storage for recordings. Playback and purge are refused when unset. */

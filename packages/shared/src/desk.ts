@@ -227,7 +227,7 @@ const periodStatsSchema = z.object({
   firstCallResolvedPct: z.number().int(), casesOpened: z.number().int(), casesResolved: z.number().int(), callbacksDone: z.number().int(),
 })
 export const agentProfileSchema = z.object({
-  id: z.string(), name: z.string(), role: z.string(), staffId: z.string(), languages: z.array(languageSchema), status: z.string().nullable(), online: z.boolean(),
+  id: z.string(), name: z.string(), role: z.string(), staffId: z.string(), photoVersion: z.string().nullable(), languages: z.array(languageSchema), status: z.string().nullable(), online: z.boolean(),
   today: periodStatsSchema, week: periodStatsSchema, month: periodStatsSchema,
   days: z.array(z.object({ label: z.string(), calls: z.number().int() })),
   hours: z.array(z.number().int()),
@@ -237,3 +237,27 @@ export const agentProfileSchema = z.object({
 })
 export type AgentProfile = z.infer<typeof agentProfileSchema>
 export type AgentPeriodStats = z.infer<typeof periodStatsSchema>
+
+/* ---- Shifts: templates, rotations, assignments, overrides ---- */
+const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:MM')
+export const shiftTemplateInputSchema = z.object({ name: z.string().trim().min(1).max(40), start: hhmm, end: hhmm, color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#E3B93C') })
+  .refine((s) => s.start !== s.end, { message: 'Start and end must differ' })
+export const shiftTemplateSchema = z.object({ id: z.string(), name: z.string(), start: hhmm, end: hhmm, color: z.string(), active: z.boolean(), overnight: z.boolean() })
+export type ShiftTemplate = z.infer<typeof shiftTemplateSchema>
+export const rotationStepSchema = z.object({ shiftId: z.string().uuid().nullable(), days: z.array(z.number().int().min(0).max(6)).max(7) })
+export type RotationStep = z.infer<typeof rotationStepSchema>
+export const rotationInputSchema = z.object({ name: z.string().trim().min(1).max(40), anchorDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), steps: z.array(rotationStepSchema).min(1).max(12) })
+export const rotationSchema = rotationInputSchema.extend({ id: z.string(), agents: z.number().int() })
+export type Rotation = z.infer<typeof rotationSchema>
+export const assignRotationSchema = z.object({ rotationId: z.string().uuid().nullable(), offsetWeeks: z.number().int().min(0).max(11).default(0) })
+export const overrideSchema = z.object({ agentId: z.string().min(1).max(64), day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), shiftId: z.string().uuid().nullable(), off: z.boolean().default(false), reason: z.string().max(200).optional() })
+export const shiftPolicySchema = z.object({ enforce: z.boolean(), graceMinutes: z.number().int().min(0).max(120) })
+export const DEFAULT_SHIFT_POLICY = { enforce: false, graceMinutes: 15 } as const
+export const rosterCellSchema = z.object({ day: z.string(), shiftId: z.string().nullable(), name: z.string().nullable(), start: z.string().nullable(), end: z.string().nullable(), color: z.string().nullable(), source: z.enum(['rotation', 'override', 'none']) })
+export type RosterCell = z.infer<typeof rosterCellSchema>
+export const rosterRowSchema = z.object({ agentId: z.string(), name: z.string(), role: z.string().nullable(), rotationId: z.string().nullable(), rotationName: z.string().nullable(), offsetWeeks: z.number().int(), hasPhoto: z.boolean(), onShiftNow: z.boolean(), cells: z.array(rosterCellSchema) })
+export type RosterRow = z.infer<typeof rosterRowSchema>
+export const rosterSchema = z.object({ from: z.string(), days: z.array(z.string()), rows: z.array(rosterRowSchema), policy: shiftPolicySchema })
+export type Roster = z.infer<typeof rosterSchema>
+/** A photo for the staff member's own Beverly profile, base64. The browser shrinks it first, so it is small; Beverly allows up to 2 MB. */
+export const photoInputSchema = z.object({ contentType: z.enum(['image/jpeg', 'image/png', 'image/webp']), data: z.string().min(100).max(1_400_000) })

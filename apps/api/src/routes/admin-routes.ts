@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { ZodTypeAny } from 'zod'
 import {
-  DEFAULT_ALERT_LIMITS, DEFAULT_CALL_FLOW, DEFAULT_SAVED_REPLIES, alertLimitsSchema, callFlowSchema, outagesSchema, savedRepliesSchema,
+  DEFAULT_ALERT_LIMITS, DEFAULT_CALL_FLOW, DEFAULT_SHIFT_POLICY, shiftPolicySchema, DEFAULT_SAVED_REPLIES, alertLimitsSchema, callFlowSchema, outagesSchema, savedRepliesSchema,
   type Connection, type RetentionStatus, type StaffUser,
 } from '@beverly-call/shared'
 import type { AppDeps } from '../app.js'
@@ -16,6 +16,7 @@ const SETTINGS: Record<string, { schema: ZodTypeAny; fallback: unknown }> = {
   call_flow: { schema: callFlowSchema, fallback: DEFAULT_CALL_FLOW },
   saved_replies: { schema: savedRepliesSchema, fallback: DEFAULT_SAVED_REPLIES },
   outages: { schema: outagesSchema, fallback: [] },
+  shift_policy: { schema: shiftPolicySchema, fallback: DEFAULT_SHIFT_POLICY },
 }
 
 

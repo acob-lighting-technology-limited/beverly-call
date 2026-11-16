@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import type { Role, SessionUser } from '@/types'
 import { ROLE_SCREENS } from '@/lib/roles'
+import { photoSrc } from '@/lib/photo'
 
 /**
  * The session comes from the API (httpOnly cookie, Beverly staff sign-on, portal_access = call).
@@ -22,6 +23,9 @@ export const useSession = defineStore('session', () => {
   const loaded = ref(false)
   const role = computed<Role | null>(() => viewAs.value ?? user.value?.role ?? null)
   const screens = computed(() => (role.value ? ROLE_SCREENS[role.value] : []))
+  /** The signed-in person's Beverly photo (shared with the wallet and CRM), or empty. */
+  const photo = computed(() => (user.value ? photoSrc(user.value.id, user.value.photoVersion) : ''))
+  const setPhotoVersion = (v: string | null): void => { if (user.value) user.value = { ...user.value, photoVersion: v } }
 
   async function load() {
     try {
@@ -44,5 +48,5 @@ export const useSession = defineStore('session', () => {
     user.value = null; viewAs.value = null
   }
   const setViewAs = (r: Role | null) => { if (user.value?.role === 'admin') viewAs.value = r === 'admin' ? null : r }
-  return { user, role, viewAs, screens, loaded, load, login, logout, setViewAs }
+  return { user, role, viewAs, screens, loaded, photo, setPhotoVersion, load, login, logout, setViewAs }
 })

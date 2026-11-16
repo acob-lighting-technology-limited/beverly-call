@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import type { FastifyPluginAsync } from 'fastify'
 import type { Pool } from 'pg'
 import { languageSchema, type AgentPeriodStats, type AgentProfile } from '@beverly-call/shared'
@@ -48,6 +49,8 @@ export const agentRoutes = ({ env, pool, fetchImpl }: AppDeps): FastifyPluginAsy
     if (id !== me.id && !pres.rows[0] && Number(seen.rows[0]?.n) === 0) return reply.code(404).send({ error: 'Agent not found' })
     const names = id === me.id ? new Map<string, string>() : await staffNames(env, req.session!.beverlyToken, fetchImpl, pool).catch(() => new Map<string, string>())
     const p = pres.rows[0]
+    const pic = await pool.query<{ u: string | null }>('select profile_picture_url as u from call_centre_read.staff where auth_user_id::text = $1 or user_id::text = $1 limit 1', [id]).catch(() => ({ rows: [] as { u: string | null }[] }))
+    const photoUrl = pic.rows[0]?.u || null
 
     const [today, week, month] = await Promise.all([periodStats(pool, id, dayStart(0)), periodStats(pool, id, dayStart(6)), periodStats(pool, id, dayStart(29))])
     const days = await pool.query<{ d: string; n: string }>(
@@ -70,6 +73,7 @@ export const agentRoutes = ({ env, pool, fetchImpl }: AppDeps): FastifyPluginAsy
     return {
       id, name: p?.name ?? (id === me.id ? me.name : names.get(id)) ?? 'Agent', role: ROLE_LABEL[id === me.id ? me.role : 'agent'] ?? 'Agent',
       staffId: `AG-${id.replace(/[^0-9a-z]/gi, '').slice(0, 4).toUpperCase()}`,
+      photoVersion: photoUrl ? createHash('sha1').update(photoUrl).digest('hex').slice(0, 10) : null,
       languages: (p?.languages ?? []).map((l) => languageSchema.catch('en').parse(l)), status: p?.status ?? null,
       online: !!p && Date.now() - p.last_seen.getTime() < 90_000,
       today, week, month,

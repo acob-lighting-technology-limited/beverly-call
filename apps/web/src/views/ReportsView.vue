@@ -5,6 +5,9 @@ import Icon from '@/components/Icon.vue'
 import KpiTile from '@/components/KpiTile.vue'
 import Modal from '@/components/Modal.vue'
 import StateBanner from '@/components/StateBanner.vue'
+import BarChart from '@/components/charts/BarChart.vue'
+import BarList from '@/components/charts/BarList.vue'
+import Heatmap from '@/components/charts/Heatmap.vue'
 import { api } from '@/lib/api'
 import { useResource } from '@/lib/use-resource'
 import { csvCell, shortDate } from '@/lib/format'
@@ -18,12 +21,7 @@ const qa = useResource(() => api<QaSample>('/qa/sample'))
 watch(range, () => { void rep.reload(); void extras.reload() })
 
 const label = computed(() => ({ '1': 'Calls today', '7': 'Calls, 7 days', '30': 'Calls, 30 days' })[range.value])
-const peak = computed(() => Math.max(1, ...(rep.data.value?.buckets ?? []).map((b) => b.calls)))
-const topMax = computed(() => Math.max(1, ...(rep.data.value?.topIssues ?? []).map((i) => i.count)))
 const handle = computed(() => { const s = rep.data.value?.avgHandleSeconds ?? 0; return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` })
-const heatMax = computed(() => Math.max(1, ...(extras.data.value?.heatmap.flat() ?? [0])))
-const fcMax = computed(() => Math.max(1, ...(extras.data.value?.forecast.map((f) => f.calls) ?? [0])))
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 function downloadCsv(): void {
   const d = rep.data.value
@@ -65,24 +63,18 @@ async function saveScore(): Promise<void> {
     <div v-if="rep.data.value" class="bento">
       <div class="c s8 w2">
         <div class="hd"><Icon name="chart" /><b>Calls by {{ range === '1' ? 'hour' : 'day' }}</b></div>
-        <div v-if="rep.data.value.buckets.length" class="vbar" role="img" :aria-label="`Calls by ${range === '1' ? 'hour' : 'day'}`"><i v-for="b in rep.data.value.buckets" :key="b.label" :class="{ k: b.calls === peak }" :style="{ height: `${(b.calls / peak) * 100}%` }" :title="`${b.label}: ${b.calls}`"></i></div>
+        <BarChart v-if="rep.data.value.buckets.length" :items="rep.data.value.buckets.map((b) => ({ label: b.label, value: b.calls }))" :height="170" trend :label="`Calls by ${range === '1' ? 'hour' : 'day'}`" />
         <div v-else style="color: var(--mut)">No calls in this period.</div>
-        <div class="vbl"><span v-for="b in rep.data.value.buckets" :key="b.label">{{ b.label }}</span></div>
         <div class="btns"><button aria-label="Download CSV" title="Download CSV" @click="downloadCsv"><Icon name="dl" /></button><button aria-label="Print or save as PDF" title="Print or save as PDF" @click="printPage"><Icon name="print" /></button></div>
       </div>
-      <div class="c dk s4 w2 stick"><div class="hd"><Icon name="flag" /><b>Top issues</b></div>
-        <template v-for="i in rep.data.value.topIssues" :key="i.issue"><div>{{ i.issue }} ({{ i.count }})</div><div class="tr2"><i :style="{ width: `${(i.count / topMax) * 100}%` }"></i></div></template>
-        <div v-if="!rep.data.value.topIssues.length" style="color: #bbb">No cases in this period.</div></div>
+      <div class="c s4 w2 stick"><div class="hd"><Icon name="flag" /><b>Top issues</b></div>
+        <BarList v-if="rep.data.value.topIssues.length" :rows="rep.data.value.topIssues.map((i) => ({ label: i.issue, value: i.count }))" />
+        <div v-else style="color: var(--mut)">No cases in this period.</div></div>
 
       <template v-if="extras.data.value">
-        <div class="c s6 w2"><div class="hd"><Icon name="grid" /><b>Busy hours</b></div>
-          <div v-for="(row, d) in extras.data.value.heatmap" :key="d" style="display: grid; grid-template-columns: 30px 1fr; gap: 6px; align-items: center; margin-bottom: 3px">
-            <small style="color: var(--mut)">{{ DAYS[d] }}</small>
-            <div style="display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px" role="img" :aria-label="`${DAYS[d]} calls by hour`"><i v-for="(n, h) in row" :key="h" :title="`${DAYS[d]} ${String(h).padStart(2, '0')}:00, ${n} calls`" :style="{ aspectRatio: '1', borderRadius: '3px', background: 'var(--yel)', opacity: String(n ? 0.15 + 0.85 * (n / heatMax) : 0.06) }"></i></div></div>
-          <small style="color: var(--mut)">Last 4 weeks, by hour of day. Darker means busier.</small></div>
+        <div class="c s6 w2"><div class="hd"><Icon name="grid" /><b>Busy hours</b></div><Heatmap :matrix="extras.data.value.heatmap" /><small style="color: var(--mut)">Last 4 weeks, by hour of day.</small></div>
         <div class="c s6 w2"><div class="hd"><Icon name="chart" /><b>Forecast, next 7 days</b></div>
-          <div class="fcb" role="img" aria-label="Forecast calls per day"><i v-for="f in extras.data.value.forecast" :key="f.day" :title="`${f.day}: about ${f.calls} calls`" :style="{ height: `${Math.max(6, (f.calls / fcMax) * 100)}%` }"></i></div>
-          <div class="vbl"><span v-for="f in extras.data.value.forecast" :key="f.day">{{ f.day }}</span></div>
+          <BarChart :items="extras.data.value.forecast.map((f) => ({ label: f.day, value: f.calls }))" :height="130" :average="false" label="Forecast calls per day" />
           <small style="color: var(--mut)">Average of the same weekday over the last four weeks.</small></div>
         <div class="c s6 w2"><div class="hd"><Icon name="users" /><b>Leaderboard</b></div>
           <template v-for="l in extras.data.value.leaderboard" :key="l.agentId"><div style="display: flex; justify-content: space-between"><span>{{ l.name }}</span><small style="color: var(--mut)">{{ l.calls }} calls{{ l.avgRating ? ` · ${l.avgRating} / 5` : '' }}</small></div><div class="tr2"><i :style="{ width: `${(l.calls / Math.max(1, extras.data.value.leaderboard[0]?.calls ?? 1)) * 100}%` }"></i></div></template>

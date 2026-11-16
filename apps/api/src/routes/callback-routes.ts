@@ -24,7 +24,8 @@ export const callbackRoutes = ({ env, pool, fetchImpl, provider }: AppDeps): Fas
   const staff = requireRole('agent', 'supervisor')
   const carrier = provider ?? africasTalking(env, fetchImpl)
 
-  app.get('/callbacks', { preHandler: staff }, async (req): Promise<CallbackFull[]> => {
+  // Admins may read the queue (the admin console shows it); they cannot change it.
+  app.get('/callbacks', { preHandler: requireRole('agent', 'supervisor', 'admin') }, async (req): Promise<CallbackFull[]> => {
     // Agents see their own plus unassigned work; supervisors see everything.
     const r = await pool.query<CallbackRow>(
       `select ${COLS} from call_centre.callbacks

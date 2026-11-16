@@ -6,6 +6,8 @@ import Icon from '@/components/Icon.vue'
 import StateBanner from '@/components/StateBanner.vue'
 import BarList from '@/components/charts/BarList.vue'
 import Donut from '@/components/charts/Donut.vue'
+import StatCard from '@/components/charts/StatCard.vue'
+import type { Metric } from '@beverly-call/shared'
 import { api } from '@/lib/api'
 import { useResource } from '@/lib/use-resource'
 import { shortDate } from '@/lib/format'
@@ -14,6 +16,9 @@ const wall = useResource(() => api<WallSnapshot>('/wall'))
 const cases = useResource(() => api<SupportCase[]>('/cases'))
 const callbacks = useResource(() => api<Callback[]>('/callbacks'))
 const qa = useResource(() => api<QaSample>('/qa/sample'))
+const sl7 = useResource(() => api<Metric>('/metrics/service_level?period=7d'))
+const over7 = useResource(() => api<Metric>('/metrics/overdue_cases?period=7d'))
+const spark = (m: Metric | null): number[] => (m?.series ?? []).map((p) => p.value)
 
 const caseCount = (s: SupportCase['state']): number => (cases.data.value ?? []).filter((c) => c.state === s).length
 const funnel = computed(() => [
@@ -35,22 +40,11 @@ const resolvedPct = computed(() => { const t = (cases.data.value ?? []).length; 
 
 <template>
   <div class="bento">
-    <div class="c s4">
-      <div class="hd"><Icon name="check" /><b>Service level today</b></div>
-      <div class="kn">{{ wall.data.value?.serviceLevelPct ?? 0 }}%</div>
-      <div class="row"><span>Abandoned</span><b>{{ wall.data.value?.abandonedPct ?? 0 }}%</b></div>
-      <div class="row"><span>Longest wait</span><b>{{ wall.data.value?.longestWaitSeconds ?? 0 }}s</b></div>
-    </div>
-    <div class="c s4">
-      <div class="hd"><Icon name="flag" /><b>Case resolution</b></div>
-      <div class="kn">{{ resolvedPct }}%</div>
-      <div class="row"><span>Past SLA</span><b>{{ wall.data.value?.overdueCases ?? 0 }}</b></div>
-      <div class="row"><span>Open</span><b>{{ wall.data.value?.openCases ?? 0 }}</b></div>
-    </div>
-    <div class="c s4">
-      <div class="hd"><Icon name="pencil" /><b>QA score</b></div>
-      <div class="kn">{{ avgScore === null ? '—' : avgScore }}</div>
-      <div class="row"><span>Calls scored</span><b>{{ scored.length }} of {{ qa.data.value?.length ?? 0 }}</b></div>
+    <div class="stat-grid">
+      <div class="c"><StatCard icon="check" label="Service level" :value="`${wall.data.value?.serviceLevelPct ?? 0}%`" :delta="sl7.data.value?.deltaPct ?? null" :spark="spark(sl7.data.value)" :sub="`Longest wait ${wall.data.value?.longestWaitSeconds ?? 0}s`" /></div>
+      <div class="c"><StatCard icon="flag" label="Cases resolved" :value="`${resolvedPct}%`" :sub="`${wall.data.value?.openCases ?? 0} open`" /></div>
+      <div class="c"><StatCard icon="alert" label="Past SLA" :value="wall.data.value?.overdueCases ?? 0" :delta="over7.data.value?.deltaPct ?? null" invert :spark="spark(over7.data.value)" /></div>
+      <div class="c"><StatCard icon="pencil" label="QA score" :value="avgScore === null ? '—' : avgScore" :sub="`${scored.length} of ${qa.data.value?.length ?? 0} scored`" /></div>
     </div>
 
     <div class="c s6">

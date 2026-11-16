@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import AgentProfileCard from '@/components/AgentProfileCard.vue'
+import { shrinkImage } from '@/lib/photo'
+import MyShifts from '@/components/MyShifts.vue'
 import { computed, ref, watch } from 'vue'
 import type { HandoverView } from '@beverly-call/shared'
 import SidePanel from '@/components/SidePanel.vue'
@@ -41,17 +43,28 @@ async function copy(t: string): Promise<void> { try { await navigator.clipboard.
 const KEYS: [string, string][] = [['Mute', 'M'], ['Hold', 'H'], ['Keypad', 'K'], ['Transfer', 'T'], ['Notes', 'N'], ['Search', 'Ctrl K'], ['Shortcuts', '?'], ['Back', 'Alt Left'], ['Go to section', 'Alt 1 to 4']]
 
 /* ---- Profile ---- */
-const PHOTO = 'bc.photo'
-const photo = ref<string>((() => { try { return localStorage.getItem(PHOTO) ?? '' } catch { return '' } })())
-function pick(e: Event): void {
-  const f = (e.target as HTMLInputElement).files?.[0]
-  if (!f || !f.type.startsWith('image/') || f.size > 400_000) { toast.show('Choose an image under 400 KB'); return }
-  const r = new FileReader()
-  r.onload = () => { photo.value = String(r.result); try { localStorage.setItem(PHOTO, photo.value) } catch { /* storage blocked */ } }
-  r.readAsDataURL(f)
+const photoBusy = ref(false)
+/** Uploads go through Beverly's own profile-picture flow, so the same photo shows in the wallet and the CRM. */
+async function pick(e: Event): Promise<void> {
+  const input = e.target as HTMLInputElement
+  const f = input.files?.[0]
+  input.value = ''
+  if (!f) return
+  photoBusy.value = true
+  try {
+    const img = await shrinkImage(f)
+    await api('/agents/me/photo', { method: 'PUT', body: JSON.stringify(img) })
+    const me = await api<{ photoVersion?: string | null }>('/session')
+    session.setPhotoVersion(me.photoVersion ?? null)
+    toast.show('Photo updated everywhere in Beverly')
+  } catch (err) { toast.show(err instanceof Error && err.message && !err.message.startsWith('Request failed') ? err.message : 'Could not update the photo') }
+  finally { photoBusy.value = false }
 }
-function clearPhoto(): void { photo.value = ''; try { localStorage.removeItem(PHOTO) } catch { /* storage blocked */ } }
-defineExpose({ photo })
+async function clearPhoto(): Promise<void> {
+  photoBusy.value = true
+  try { await api('/agents/me/photo', { method: 'DELETE' }); session.setPhotoVersion(null); toast.show('Photo removed everywhere in Beverly') }
+  catch { toast.show('Could not remove the photo') } finally { photoBusy.value = false }
+}
 </script>
 
 <template>
@@ -74,13 +87,14 @@ defineExpose({ photo })
   </SidePanel>
 
   <SidePanel :open="ui.panel === 'profile'" title="Profile" @close="ui.close">
-    <AgentProfileCard v-if="ui.panel === 'profile' && session.user" :agent-id="session.user.id" :photo="photo">
+    <AgentProfileCard v-if="ui.panel === 'profile' && session.user" :agent-id="session.user.id" :photo="session.photo">
       <template #actions>
         <div class="btns" style="justify-content: center">
-          <label class="fbtn" style="cursor: pointer">Change photo<input type="file" accept="image/*" hidden @change="pick" /></label>
-          <button v-if="photo" @click="clearPhoto">Use initials</button></div>
+          <label class="fbtn" style="cursor: pointer">{{ photoBusy ? 'Uploading…' : session.photo ? 'Change' : 'Add photo' }}<input type="file" accept="image/*" hidden :disabled="photoBusy" @change="pick" /></label>
+          <button v-if="session.photo" :disabled="photoBusy" @click="clearPhoto">Remove</button></div>
       </template>
+      <template #shift><MyShifts /></template>
     </AgentProfileCard>
-    <p style="color: var(--mut); font-size: 12px">The photo is kept on this device only. Your name, role and portal access come from Beverly.</p>
+    <p style="color: var(--mut); font-size: 12px">Your photo is your Beverly profile photo: the same picture shows in the wallet, the CRM and here. Your name, role and portal access come from Beverly.</p>
   </SidePanel>
 </template>

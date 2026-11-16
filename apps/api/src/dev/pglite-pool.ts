@@ -65,7 +65,7 @@ const BEVERLY_STUBS = `
   create table if not exists public.customer_meters (id uuid primary key default gen_random_uuid(), customer_id uuid, meter_id text, meter_type text, station_id text, tariff_id text,
     nickname text, alias text, meter_name text, status text default 'approved', created_at timestamptz default now());
   create table if not exists public.users (id uuid primary key default gen_random_uuid(), auth_user_id uuid, user_name text, email text, role_key text, station_id text, station_ids text[],
-    portal_access text[], created_at timestamptz default now(), updated_at timestamptz default now(), password_session_id text);
+    portal_access text[], created_at timestamptz default now(), updated_at timestamptz default now(), password_session_id text, user_id text, profile_picture_url text);
   create table if not exists public.wallets (id uuid primary key default gen_random_uuid(), owner_type text, owner_id uuid, currency text default 'NGN', status text default 'active');
   create table if not exists public.wallet_balances_stub (wallet_id uuid, ledger_balance_minor bigint, active_holds_minor bigint, available_balance_minor bigint);
   create or replace view public.v_wallet_balances as

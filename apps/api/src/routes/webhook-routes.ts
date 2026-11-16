@@ -3,6 +3,7 @@ import type { AppDeps } from '../app.js'
 import { parseCallEvent, parseRating, parseSmsEvent, secretMatches, type CallEvent } from '../telephony/africastalking.js'
 import { LANGUAGE_DIGITS, dialAgent, emptyResponse, languageMenu, noAgentCallback } from '../routing/ivr.js'
 import { pickAgent, type Candidate } from '../routing/pick-agent.js'
+import { agentsOnShift } from '../shifts/store.js'
 import { notify, webPushSender } from '../notify/notify.js'
 
 interface CallRow { id: string; queue: string; agent_crm_id: string | null; language: string }
@@ -28,7 +29,9 @@ export const webhookRoutes = ({ env, pool, push }: AppDeps): FastifyPluginAsync 
 
     const p = await pool.query<PresenceRow>('select agent_crm_id, client_name, status, languages, skills, idle_since, last_seen from call_centre.agent_presence')
     const cands: Candidate[] = p.rows.map((x) => ({ agentId: x.agent_crm_id, clientName: x.client_name, status: x.status, languages: x.languages, skills: x.skills, idleSinceMs: x.idle_since.getTime(), lastSeenMs: x.last_seen.getTime() }))
-    const agent = pickAgent(cands, language, Date.now())
+    // When the admin enforces shifts, only agents on shift are offered the call.
+    const { onShift } = await agentsOnShift(pool, cands.map((c) => c.agentId))
+    const agent = pickAgent(cands.filter((c) => onShift.has(c.agentId)), language, Date.now())
 
     if (!agent) {
       await pool.query(

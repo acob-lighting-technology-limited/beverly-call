@@ -5,7 +5,7 @@ import type { Env } from '../config/env.js'
 
 const supabaseLogin = z.object({
   access_token: z.string().min(1),
-  user: z.object({ id: z.string().min(1), user_metadata: z.record(z.unknown()).default({}) }),
+  user: z.object({ id: z.string().min(1), user_metadata: z.record(z.string(), z.unknown()).default({}) }),
 })
 
 /** The staff row in the shared Supabase project: public.users, keyed by auth_user_id. */

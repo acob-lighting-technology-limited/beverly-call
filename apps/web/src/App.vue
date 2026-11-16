@@ -134,7 +134,7 @@ const toggleMenu = () => ui.toggle('menu')
       <button class="ib" aria-label="Notifications" title="Notifications" :aria-expanded="ui.panel === 'notifications'" @click.stop="ui.toggle('notifications')">
         <Icon name="bell" /><i v-if="inbox.unread" class="bd">{{ inbox.unread }}</i></button>
       <button class="avb" :data-st="presence.status" aria-haspopup="true" :aria-expanded="ui.panel === 'menu'" aria-label="Account menu" @click.stop="toggleMenu">
-        <span class="avw"><span class="avi">{{ initials }}</span><i class="sd" aria-hidden="true"></i></span>
+        <span class="avw"><span class="avi" :style="session.photo ? { backgroundImage: `url(${session.photo})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}">{{ initials }}</span><i class="sd" aria-hidden="true"></i></span>
         <span><b style="font-weight: 400">{{ session.user?.name }}</b><small style="display: block; color: var(--mut); font-size: 10px">{{ takesCalls ? STATUS.find((x) => x.id === presence.status)?.label : session.user?.role }}</small></span>
       </button>
 

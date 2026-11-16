@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "pnpm --filter @beverly-call/web dev",
     "dev:mock": "pnpm --filter @beverly-call/api dev:mock",
-    "build": "pnpm --filter @beverly-call/web build",
+    "build": "node scripts/check-deploy.mjs && pnpm --filter @beverly-call/web build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "e2e": "playwright test"

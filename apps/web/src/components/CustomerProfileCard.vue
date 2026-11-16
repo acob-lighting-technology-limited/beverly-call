@@ -1,14 +1,23 @@
 <script setup lang="ts">
 /** Account, station, meter and tariff details from Beverly's management pages.
  *  Used by: CustomersView. Data: GET /api/customers/:id/profile. */
+import { computed } from 'vue'
 import type { CustomerProfile } from '@beverly-call/shared'
 import Icon from '@/components/Icon.vue'
 import Pill from '@/components/Pill.vue'
 import { maskPhone } from '@/lib/mask'
 import { useSettings } from '@/stores/settings'
 
-defineProps<{ profile: CustomerProfile }>()
+const props = defineProps<{ profile: CustomerProfile; customerId?: string }>()
 const settings = useSettings()
+/** The CRM often has no account number, so the card shows the next best identifier rather than a dash: meter number, then customer ID. */
+const ident = computed<{ label: string; value: string }>(() => {
+  const a = props.profile.account.accountNo
+  if (a) return { label: 'Account number', value: a }
+  const m = props.profile.meters.find((x) => x.meterId)?.meterId
+  if (m) return { label: 'Meter number', value: m }
+  return props.customerId ? { label: 'Customer ID', value: props.customerId } : { label: 'Account number', value: '—' }
+})
 const dash = (v: string | number | null | undefined): string => (v === null || v === undefined || v === '' ? '—' : String(v))
 const since = (iso: string | null): string => (iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—')
 const price = (n: number | null): string => (n === null ? '' : ` · NGN ${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}/kWh`)
@@ -17,7 +26,7 @@ const price = (n: number | null): string => (n === null ? '' : ` · NGN ${n.toLo
 <template>
   <div class="c fr" aria-label="Account and meters">
     <div class="hd"><Icon name="user" /><b>Account</b><Pill :tone="profile.account.status === 'active' ? 'ok' : 'ye'">{{ dash(profile.account.status) }}</Pill></div>
-    <div class="row"><span>Account number</span><b style="font-weight: 400">{{ dash(profile.account.accountNo) }}</b></div>
+    <div class="row"><span>{{ ident.label }}</span><b style="font-weight: 400; overflow-wrap: anywhere; text-align: right">{{ ident.value }}</b></div>
     <div class="row"><span>Site</span><span>{{ dash(profile.account.siteId) }}</span></div>
     <div class="row"><span>KYC</span><span>{{ profile.account.kycTier === null ? '—' : `Tier ${profile.account.kycTier}` }}{{ profile.account.kycStatus ? `, ${profile.account.kycStatus}` : '' }}</span></div>
     <div class="row"><span>Phone</span><span>{{ settings.p.mask ? maskPhone(profile.account.phone ?? '') : dash(profile.account.phone) }}</span></div>
