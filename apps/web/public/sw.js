@@ -5,8 +5,8 @@ self.addEventListener('push', (event) => {
   const title = typeof data.title === 'string' ? data.title : 'Beverly Call'
   event.waitUntil(self.registration.showNotification(title, {
     body: typeof data.body === 'string' ? data.body : '',
-    icon: '/brand/beverly-mark.png',
-    badge: '/brand/beverly-mark.png',
+    icon: '/brand/beverly-call-mark.png',
+    badge: '/brand/beverly-call-mark.png',
     data: { link: typeof data.link === 'string' && data.link.startsWith('/') ? data.link : '/' },
   }))
 })

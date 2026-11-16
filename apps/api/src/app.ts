@@ -13,6 +13,7 @@ import { callbackRoutes } from './routes/callback-routes.js'
 import { callRoutes } from './routes/call-routes.js'
 import { monitorRoutes } from './routes/monitor-routes.js'
 import { customerRoutes } from './routes/customer-routes.js'
+import { bindingRoutes } from './routes/binding-routes.js'
 import { adminRoutes } from './routes/admin-routes.js'
 import { webhookRoutes } from './routes/webhook-routes.js'
 import formbody from '@fastify/formbody'
@@ -83,6 +84,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(inboxRoutes(deps), { prefix: '/api' })
   await app.register(supportRoutes(deps), { prefix: '/api' })
   await app.register(customerRoutes(deps), { prefix: '/api' })
+  await app.register(bindingRoutes(deps), { prefix: '/api' })
   await app.register(adminRoutes(deps), { prefix: '/api' })
   await app.register(webhookRoutes(deps), { prefix: '/api' })
   return app

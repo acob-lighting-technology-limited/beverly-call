@@ -5,6 +5,7 @@
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import Icon from '@/components/Icon.vue'
+import { useBrandMark } from '@/lib/use-brand-mark'
 import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
 import { GROUPS } from '@/lib/roles'
@@ -21,7 +22,7 @@ const groups = computed(() => GROUPS.map((g, i) => ({ ...g, i, reachable: g.scre
 const subnav = computed(() => (groupIdx.value > 0 ? GROUPS[groupIdx.value]!.screens.filter((s) => session.screens.includes(s)) : []))
 /** Agents have only their own cases under Monitor, so the tab says so. */
 const navLabel = (i: number): string => (session.role === 'agent' && GROUPS[i]?.label === 'Monitor' ? 'Cases' : groupLabel(settings.p.lang, i))
-const mark = computed(() => (settings.isDark() ? '/brand/beverly-mark-light.png' : '/brand/beverly-mark.png'))
+const mark = useBrandMark(true)
 </script>
 
 <template>

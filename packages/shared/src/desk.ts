@@ -205,3 +205,18 @@ export const supportPatchSchema = z.object({
   assignToMe: z.boolean().optional(), unassign: z.boolean().optional(),
 }).refine((v) => Object.keys(v).length > 0, { message: 'Nothing to change' })
 export const supportMessageInputSchema = z.object({ body: z.string().trim().min(1).max(4000), internal: z.boolean().default(false) })
+
+/* ---- Binding a calling number to a customer's meter ---- */
+export const bindingChecksSchema = z.object({ meter: z.boolean(), name: z.boolean(), lastPurchase: z.boolean(), address: z.boolean() })
+export const createBindingSchema = z.object({
+  phone: z.string().min(7).max(20), customerId: z.string().uuid(), meters: z.array(z.string().min(3).max(40)).min(1).max(20), label: z.string().max(40).optional(),
+  callId: z.string().uuid().optional(), checks: bindingChecksSchema,
+}).refine((b) => Object.values(b.checks).filter(Boolean).length >= 2, { message: 'Confirm at least two details with the caller' })
+export const decideBindingSchema = z.object({ approve: z.boolean(), note: z.string().max(300).optional() })
+export const bindingStatusSchema = z.enum(['pending', 'approved', 'rejected', 'applied'])
+export const phoneBindingSchema = z.object({
+  id: z.string(), phone: z.string(), customerId: z.string(), customerName: z.string().nullable(), meter: z.string(), label: z.string().nullable(), status: bindingStatusSchema,
+  checks: bindingChecksSchema, requestedBy: z.string(), requestedByName: z.string(), createdAt: z.string(),
+  decidedByName: z.string().nullable(), decisionNote: z.string().nullable(), crmResult: z.string().nullable(),
+})
+export type PhoneBinding = z.infer<typeof phoneBindingSchema>

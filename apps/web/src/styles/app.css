@@ -333,37 +333,72 @@ html[data-ast=on] :is(.avb,.mh) img{box-shadow:0 0 0 2px var(--st-on)}html[data-
 input[type=checkbox],input[type=radio]{width:22px;height:22px;accent-color:var(--yel)}
 @media (pointer:coarse){.acs button,.dtf button,.dens,.fbtn,.fc,.fcl{min-width:40px;min-height:40px}.ib{min-height:40px}}
 
-/* ================= LIQUID GLASS v2 =================
-   Three material levels, one rule: blur only on top-level surfaces, never nested.
-   L1 surface (blur + fill + specular) | L2 control (fill + specular, no blur) | overlay (higher opacity, blur)
-   Everything reads tokens, so palette and light/dark flow through automatically. */
-[data-surf=glass]{--gl-a:rgba(255,255,255,.74);--gl-b:rgba(255,255,255,.5);--gl-ca:rgba(255,255,255,.66);--gl-cb:rgba(255,255,255,.44);--gl-oa:rgba(255,255,255,.9);--gl-ob:rgba(255,255,255,.78);--gl-bd:rgba(255,255,255,.8);--gl-hi:inset 0 1px 0 rgba(255,255,255,.95),inset 0 -1px 0 rgba(255,255,255,.35);--gl-sh:0 10px 30px rgba(20,28,50,.13);--gl-tint:color-mix(in srgb,var(--yel) 7%,transparent);--gl-blur:blur(20px) saturate(160%);--gl-oblur:blur(28px) saturate(170%);--gl-osh:0 18px 48px rgba(10,16,40,.28);--gl-dk-a:color-mix(in srgb,var(--dark) 86%,transparent);--gl-dk-b:color-mix(in srgb,var(--dark) 70%,transparent)}
-[data-surf=glass][data-theme=dark]{--gl-a:rgba(54,58,72,.68);--gl-b:rgba(28,30,40,.54);--gl-ca:rgba(255,255,255,.12);--gl-cb:rgba(255,255,255,.06);--gl-oa:rgba(46,49,62,.92);--gl-ob:rgba(30,32,42,.86);--gl-bd:rgba(255,255,255,.2);--gl-hi:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -1px 0 rgba(255,255,255,.04);--gl-sh:0 10px 30px rgba(0,0,0,.5)}
-[data-surf=glass] .app{background:radial-gradient(55% 45% at 12% 8%,var(--orb1),transparent 62%),radial-gradient(48% 42% at 92% 18%,var(--orb2),transparent 62%),radial-gradient(55% 48% at 72% 96%,var(--orb3),transparent 62%),radial-gradient(40% 40% at 8% 88%,var(--orb4),transparent 62%),linear-gradient(135deg,var(--g1),var(--g2) 60%,var(--g3))}
-[data-surf=glass] .view{background:none}
-[data-surf=glass] .c:not(.dk),[data-surf=glass] .c.dk,[data-surf=glass] .fk,[data-surf=glass] .pc,[data-surf=glass] .tbar .ib,[data-surf=glass] .avb,[data-surf=glass] nav,[data-surf=glass] .subnav{background:linear-gradient(135deg,var(--gl-a),var(--gl-b)),linear-gradient(var(--gl-tint),var(--gl-tint))!important;border:1px solid var(--gl-bd)!important;box-shadow:var(--gl-hi),var(--gl-sh)!important;-webkit-backdrop-filter:var(--gl-blur);backdrop-filter:var(--gl-blur)}
-[data-surf=glass] .cc2,[data-surf=glass] .ban,[data-surf=glass] .vt,[data-surf=glass] .ss,[data-surf=glass] .chs button:not(.on),[data-surf=glass] .jm button,[data-surf=glass] .fbtn:not(.on),[data-surf=glass] .dens:not(.on),[data-surf=glass] .dtb .sch,[data-surf=glass] .cdh .sch,[data-surf=glass] .pk,[data-surf=glass] .hero .dr>div,[data-surf=glass] .fr{background:linear-gradient(135deg,var(--gl-ca),var(--gl-cb))!important;border:1px solid var(--gl-bd)!important;box-shadow:var(--gl-hi)!important;-webkit-backdrop-filter:none;backdrop-filter:none}
-[data-surf=glass] .menu,[data-surf=glass] .np,[data-surf=glass] .fpop,[data-surf=glass] .sheet,[data-surf=glass] .lkc{background:linear-gradient(135deg,var(--gl-oa),var(--gl-ob))!important;border:1px solid var(--gl-bd)!important;box-shadow:var(--gl-hi),var(--gl-osh)!important;-webkit-backdrop-filter:var(--gl-oblur);backdrop-filter:var(--gl-oblur)}
-[data-surf=glass] .sheet{border-radius:28px 28px 0 0}
-[data-surf=glass] .c.dk{background:linear-gradient(135deg,var(--gl-dk-a),var(--gl-dk-b))!important;border:1px solid rgba(255,255,255,.2)!important;color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),var(--gl-sh)!important}
-[data-surf=glass] nav{background:linear-gradient(135deg,rgba(255,255,255,.2),rgba(255,255,255,.05)),color-mix(in srgb,var(--dark) 86%,transparent)!important;border-color:rgba(255,255,255,.3)!important}
-[data-surf=glass] nav a{color:#E9E9EC}
-/* never nest blur: any descendant of a blurred surface renders fill-only */
-[data-surf=glass] :is(.c,.fk,.pc,.menu,.np,.fpop,.sheet,.lkc,nav,.subnav,.head) *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
-[data-surf=glass] .head{-webkit-backdrop-filter:none;backdrop-filter:none;background:none}
-[data-surf=glass] .head .fk{-webkit-backdrop-filter:var(--gl-blur)!important;backdrop-filter:var(--gl-blur)!important}
-/* transparent wrappers inside glass stay clean */
-[data-surf=glass] :is(.hero .dr,.npl,.nph,.npt button:not(.on),.c .ss button:not(.on)){background:none!important;border-color:transparent!important;box-shadow:none!important}
-[data-surf=glass] :is(.ss,.vt) button.on,[data-surf=glass] :is(.chs,.jm) button.on,[data-surf=glass] .fbtn.on,[data-surf=glass] .dens.on{box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 4px 12px rgba(0,0,0,.22)}
-[data-surf=glass] th{background:color-mix(in srgb,var(--card) 55%,transparent)}
-[data-surf=glass] .tl{box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 8px 20px rgba(0,0,0,.14)}
+/* ================= LIQUID GLASS v3 (Apple) =================
+   Distilled from Apple's Liquid Glass guidance:
+   1. Glass is the floating control layer only: navigation, toolbars, chips, segmented controls, popovers, sheets.
+      Content (cards, lists, tables) sits beneath it on a calm surface and is never blurred.
+   2. Never stack glass on glass: blur happens only on the top-level floating element; its children get fill only.
+   3. Material = blur + saturation boost + faint tint, with a specular rim (bright top edge, hairline outline) so edges catch light.
+   4. Adaptive: light and dark carry their own fill, rim and shadow. Solid fallbacks cover reduced transparency, more contrast,
+      forced colours, the high-contrast setting and browsers without backdrop-filter.
+   5. Spring press feedback that honours reduced motion.
+   Everything reads --lg-* tokens, so palettes and themes flow through. Debt: true refraction (lensing) needs an SVG
+   displacement backdrop-filter, which is Chromium-only; not used here. */
+:root[data-surf=glass]{
+  --lg-fill-a:rgba(255,255,255,.52);--lg-fill-b:rgba(255,255,255,.24);
+  --lg-ctl-a:rgba(255,255,255,.46);--lg-ctl-b:rgba(255,255,255,.22);
+  --lg-ovl-a:rgba(255,255,255,.9);--lg-ovl-b:rgba(255,255,255,.78);
+  --lg-rim:rgba(255,255,255,.72);
+  --lg-spec:inset 0 1px 0 rgba(255,255,255,.95),inset 0 -1px 0 rgba(255,255,255,.3),inset 0 0 0 1px var(--lg-rim);
+  --lg-shadow:0 10px 30px rgba(20,28,50,.14),0 1px 2px rgba(20,28,50,.1);
+  --lg-oshadow:0 18px 48px rgba(10,16,40,.28);
+  --lg-tint:color-mix(in srgb,var(--accent) 6%,transparent);
+  --lg-blur:blur(16px) saturate(180%);--lg-oblur:blur(30px) saturate(180%);
+  --lg-content:color-mix(in srgb,var(--card) 64%,transparent);--lg-content-bd:rgba(255,255,255,.7);--lg-content-spec:inset 0 1px 0 rgba(255,255,255,.7);
+  --lg-dk-a:color-mix(in srgb,var(--dark) 94%,transparent);--lg-dk-b:color-mix(in srgb,var(--dark) 84%,transparent)}
+:root[data-surf=glass][data-theme=dark]{
+  --lg-fill-a:rgba(255,255,255,.15);--lg-fill-b:rgba(255,255,255,.05);
+  --lg-ctl-a:rgba(255,255,255,.17);--lg-ctl-b:rgba(255,255,255,.07);
+  --lg-ovl-a:rgba(46,49,62,.92);--lg-ovl-b:rgba(30,32,42,.86);
+  --lg-rim:rgba(255,255,255,.22);
+  --lg-spec:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -1px 0 rgba(255,255,255,.04),inset 0 0 0 1px var(--lg-rim);
+  --lg-shadow:0 12px 34px rgba(0,0,0,.5),0 1px 2px rgba(0,0,0,.4);--lg-oshadow:0 20px 52px rgba(0,0,0,.6);
+  --lg-blur:blur(16px) saturate(170%) brightness(.92);--lg-oblur:blur(30px) saturate(170%) brightness(.9);
+  --lg-content:color-mix(in srgb,var(--card) 58%,transparent);--lg-content-bd:rgba(255,255,255,.12);--lg-content-spec:inset 0 1px 0 rgba(255,255,255,.12)}
+:root[data-surf=glass] .app{background:radial-gradient(55% 45% at 12% 8%,var(--orb1),transparent 62%),radial-gradient(48% 42% at 92% 18%,var(--orb2),transparent 62%),radial-gradient(55% 48% at 72% 96%,var(--orb3),transparent 62%),radial-gradient(40% 40% at 8% 88%,var(--orb4),transparent 62%),linear-gradient(135deg,var(--g1),var(--g2) 60%,var(--g3))}
+:root[data-surf=glass] .view{background:none}
+/* floating layer, top level: blur + fill + rim */
+:root[data-surf=glass] :is(nav,.subnav,.tbar .ib,.avb,.fk,.vt){background:linear-gradient(135deg,var(--lg-fill-a),var(--lg-fill-b)),linear-gradient(var(--lg-tint),var(--lg-tint));border:1px solid var(--lg-rim);box-shadow:var(--lg-spec),var(--lg-shadow);-webkit-backdrop-filter:var(--lg-blur);backdrop-filter:var(--lg-blur)}
+/* floating layer, controls: fill + rim, no blur of their own */
+:root[data-surf=glass] :is(.ss,.chs button:not(.on),.jm button,.fbtn:not(.on),.dens:not(.on),.dtb .sch,.cdh .sch,.chip){background:linear-gradient(135deg,var(--lg-ctl-a),var(--lg-ctl-b));border:1px solid var(--lg-rim);box-shadow:var(--lg-spec);-webkit-backdrop-filter:none;backdrop-filter:none}
+/* overlays: stronger fill so text stays legible, heavier blur */
+:root[data-surf=glass] :is(.menu,.np,.fpop,.sheet,.lkc){background:linear-gradient(135deg,var(--lg-ovl-a),var(--lg-ovl-b));border:1px solid var(--lg-rim);box-shadow:var(--lg-spec),var(--lg-oshadow);-webkit-backdrop-filter:var(--lg-oblur);backdrop-filter:var(--lg-oblur)}
+:root[data-surf=glass] .sheet{border-radius:var(--r-xl) var(--r-xl) 0 0}
+/* content layer: calm surface under the glass, never blurred. Semantic banners (.ban) keep their own colour. */
+:root[data-surf=glass] :is(.c:not(.dk),.cc2,.pc,.pk,.hero .dr>div,.fr){background:var(--lg-content);border:1px solid var(--lg-content-bd);box-shadow:var(--lg-content-spec),var(--sh-2);-webkit-backdrop-filter:none;backdrop-filter:none}
+:root[data-surf=glass] .c.dk{background:linear-gradient(135deg,var(--lg-dk-a),var(--lg-dk-b));border:1px solid rgba(255,255,255,.2);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),var(--sh-2)}
+/* nav text follows the theme: the glass rail is light in light mode and dark in dark mode */
+:root[data-surf=glass] nav a:not(.on){color:var(--text);background:transparent}
+@media (min-width:640px){:root[data-surf=glass] nav a:not(.on){background:color-mix(in srgb,var(--text) 7%,transparent)}:root[data-surf=glass] nav a:not(.on):hover{background:color-mix(in srgb,var(--text) 14%,transparent)}}
+/* never nest blur: descendants of a blurred surface render fill only */
+:root[data-surf=glass] :is(.menu,.np,.fpop,.sheet,.lkc,nav,.subnav,.fk) *{-webkit-backdrop-filter:none;backdrop-filter:none}
+:root[data-surf=glass] .head{-webkit-backdrop-filter:none;backdrop-filter:none}
+/* transparent wrappers inside overlays stay clean */
+:root[data-surf=glass] :is(.hero .dr,.npl,.nph,.npt button:not(.on),.c .ss button:not(.on)){background:none;border-color:transparent;box-shadow:none}
+:root[data-surf=glass] :is(.ss,.vt) button.on,:root[data-surf=glass] :is(.chs,.jm) button.on,:root[data-surf=glass] .fbtn.on,:root[data-surf=glass] .dens.on{box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 4px 12px rgba(0,0,0,.22)}
+:root[data-surf=glass] th{background:color-mix(in srgb,var(--card) 55%,transparent)}
+:root[data-surf=glass] .tl{box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 8px 20px rgba(0,0,0,.14)}
 /* interaction: spring-like press, honours reduced motion */
-@media (prefers-reduced-motion:no-preference){[data-surf=glass]:not([data-rm]) :is(button,.cc2,nav a,.fk){transition:transform .18s cubic-bezier(.2,.8,.2,1),background .2s}[data-surf=glass]:not([data-rm]) :is(button,.cc2):active{transform:scale(.97)}}
-/* accessibility and capability fallbacks: opaque surfaces */
-/* Solid fallback: one variable override replaces per-selector rules (capability, user preference, contrast). */
-@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){:root[data-surf=glass]{--gl-a:var(--card);--gl-b:var(--card);--gl-ca:var(--card);--gl-cb:var(--card);--gl-oa:var(--card);--gl-ob:var(--card);--gl-bd:var(--line);--gl-hi:inset 0 0 0 0 transparent;--gl-sh:var(--sh-1);--gl-osh:var(--sh-1);--gl-tint:transparent;--gl-blur:none;--gl-oblur:none;--gl-dk-a:var(--dark);--gl-dk-b:var(--dark)}}
-@media (prefers-reduced-transparency:reduce),(prefers-contrast:more),(forced-colors:active){:root[data-surf=glass]{--gl-a:var(--card);--gl-b:var(--card);--gl-ca:var(--card);--gl-cb:var(--card);--gl-oa:var(--card);--gl-ob:var(--card);--gl-bd:var(--line);--gl-hi:inset 0 0 0 0 transparent;--gl-sh:var(--sh-1);--gl-osh:var(--sh-1);--gl-tint:transparent;--gl-blur:none;--gl-oblur:none;--gl-dk-a:var(--dark);--gl-dk-b:var(--dark)}}
-:root[data-hc][data-surf=glass]{--gl-a:var(--card);--gl-b:var(--card);--gl-ca:var(--card);--gl-cb:var(--card);--gl-oa:var(--card);--gl-ob:var(--card);--gl-bd:var(--line);--gl-hi:inset 0 0 0 0 transparent;--gl-sh:var(--sh-1);--gl-osh:var(--sh-1);--gl-tint:transparent;--gl-blur:none;--gl-oblur:none;--gl-dk-a:var(--dark);--gl-dk-b:var(--dark);--gl-bd:var(--ink)}
+@media (prefers-reduced-motion:no-preference){
+  :root[data-surf=glass]:not([data-rm]) :is(button,.cc2,nav a,.fk){transition:transform .32s var(--ease-spring),background var(--dur-base),box-shadow var(--dur-base)}
+  :root[data-surf=glass]:not([data-rm]) :is(button,.cc2,.fk):active{transform:scale(.96);transition-duration:.1s}
+}
+/* solid fallbacks: one variable override (no backdrop-filter support, reduced transparency, more contrast, forced colours, high-contrast setting) */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  :root[data-surf=glass],:root[data-surf=glass][data-theme=dark]{--lg-fill-a:var(--card);--lg-fill-b:var(--card);--lg-ctl-a:var(--card);--lg-ctl-b:var(--card);--lg-ovl-a:var(--card);--lg-ovl-b:var(--card);--lg-rim:var(--line);--lg-spec:inset 0 0 0 0 transparent;--lg-shadow:var(--sh-1);--lg-oshadow:var(--sh-1);--lg-tint:transparent;--lg-blur:none;--lg-oblur:none;--lg-content:var(--card);--lg-content-bd:var(--line);--lg-content-spec:inset 0 0 0 0 transparent;--lg-dk-a:var(--dark);--lg-dk-b:var(--dark)}}
+@media (prefers-reduced-transparency:reduce),(prefers-contrast:more),(forced-colors:active){
+  :root[data-surf=glass],:root[data-surf=glass][data-theme=dark]{--lg-fill-a:var(--card);--lg-fill-b:var(--card);--lg-ctl-a:var(--card);--lg-ctl-b:var(--card);--lg-ovl-a:var(--card);--lg-ovl-b:var(--card);--lg-rim:var(--line);--lg-spec:inset 0 0 0 0 transparent;--lg-shadow:var(--sh-1);--lg-oshadow:var(--sh-1);--lg-tint:transparent;--lg-blur:none;--lg-oblur:none;--lg-content:var(--card);--lg-content-bd:var(--line);--lg-content-spec:inset 0 0 0 0 transparent;--lg-dk-a:var(--dark);--lg-dk-b:var(--dark)}}
+:root[data-hc][data-surf=glass],:root[data-hc][data-surf=glass][data-theme=dark]{--lg-fill-a:var(--card);--lg-fill-b:var(--card);--lg-ctl-a:var(--card);--lg-ctl-b:var(--card);--lg-ovl-a:var(--card);--lg-ovl-b:var(--card);--lg-rim:var(--ink);--lg-spec:inset 0 0 0 0 transparent;--lg-shadow:var(--sh-1);--lg-oshadow:var(--sh-1);--lg-tint:transparent;--lg-blur:none;--lg-oblur:none;--lg-content:var(--card);--lg-content-bd:var(--ink);--lg-content-spec:inset 0 0 0 0 transparent;--lg-dk-a:var(--dark);--lg-dk-b:var(--dark)}
 [data-hc]:not([data-theme=dark]){--mut:#3A3A3F;--line:#777}
 [data-surf=glass] #call{background:none!important}
 #pin{background:#1F7A45;color:#fff}
@@ -382,9 +417,8 @@ input[type=range]{accent-color:var(--yel);padding:0;height:24px}
 .hs::-webkit-scrollbar{display:none;width:0;height:0}
 .flow,.kp,.chs,.jm,.ctx{scrollbar-width:none}
 .flow::-webkit-scrollbar,.kp::-webkit-scrollbar,.chs::-webkit-scrollbar,.jm::-webkit-scrollbar{display:none}
-/* Beverly b logo: default (yellow) palette tints the green mark to gold; green palettes show it as designed */
+/* Beverly Call logo (dark body on light themes, white body on dark) */
 .bmark{display:block;object-fit:contain}
-:root:not([data-pal]) .bmark{filter:hue-rotate(-58deg) saturate(1.15) brightness(1.08)}
 .br{gap:8px}.br .bmark{width:30px;height:30px}
 .rail-logo{display:none}
 @media (min-width:640px){.rail-logo{display:block;width:36px;height:36px;margin:2px auto 8px}nav{padding-top:14px}}
@@ -415,3 +449,39 @@ input[type=range]{accent-color:var(--yel);padding:0;height:24px}
 #call .ctl button:active{transform:scale(.94)}
 .ban{font-size:var(--fs-sm)}
 ::selection{background:color-mix(in srgb,var(--accent) 55%,transparent)}
+
+/* ===== data tables: card view (any table.rt inside .dv-cards becomes a grid of cards at every width) ===== */
+.dv-cards table.rt{min-width:0;display:block}
+.dv-cards .rt thead{display:none}
+.dv-cards .rt tbody{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:var(--sp-3)}
+.dv-cards .rt tr{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-1) var(--sp-3);align-content:start;padding:var(--sp-3);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh-1)}
+.dv-cards .rt td{display:block;border:0;padding:0 var(--sp-1);white-space:normal}
+.dv-cards .rt td::before{content:attr(data-label);display:block;color:var(--text-muted);font-size:10px}
+.dv-cards .rt tr.sel{outline:2px solid var(--accent);outline-offset:-2px}
+.dv-cards .rt tr.sel td,.dv-cards .rt tr:hover td{background:none}
+.dv-cards .rt td.act{grid-column:1/-1;text-align:left;width:auto}
+.dv-cards .rt td.act::before,.dv-cards th.act{display:none}
+.dv-cards .rt .dte,.dv-cards .rt .dte td{display:block}
+:root[data-surf=glass] .dv-cards .rt tr{background:var(--lg-content);border-color:var(--lg-content-bd)}
+.vt-row{display:flex;justify-content:flex-end;margin:0 0 var(--sp-2)}
+
+/* text on inverse (dark) cards stays readable in every theme */
+.c.dk .hd .i,.c.dk small,.c.dk .sub{color:color-mix(in srgb,#fff 72%,transparent)}
+
+/* segmented control container: rounded so the glass rim never draws a square outline */
+.ss{border-radius:var(--r-pill);padding:3px}
+
+/* data tables, table view on small screens: a real table that scrolls sideways (cards are the stacked layout) */
+@media (max-width:639px){
+.scroll.dv-table{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.dv-table table.rt{min-width:520px;display:table}
+.dv-table .rt thead{display:table-header-group}
+.dv-table .rt tbody{display:table-row-group}
+.dv-table .rt tr{display:table-row;padding:0;border-bottom:0}
+.dv-table .rt td{display:table-cell;padding:7px 6px;border-bottom:1px dotted var(--line);white-space:nowrap}
+.dv-table .rt td::before{display:none}
+.dv-table .rt td.act{grid-column:auto;width:1%;text-align:right}
+.dv-table th.act{display:table-cell}
+.dv-table .rt .dte{display:table-row}.dv-table .rt .dte td{display:table-cell}
+.dv-table .rt tr.sel{background:none;border-radius:0}
+}

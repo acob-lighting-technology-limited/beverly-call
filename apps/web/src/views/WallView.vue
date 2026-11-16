@@ -6,6 +6,7 @@ import KpiTile from '@/components/KpiTile.vue'
 import StateBanner from '@/components/StateBanner.vue'
 import FilterPopover, { type FilterGroup } from '@/components/FilterPopover.vue'
 import ViewToggle, { type ViewMode } from '@/components/ViewToggle.vue'
+import { useViewMode } from '@/lib/use-view-mode'
 import { api } from '@/lib/api'
 import { useResource } from '@/lib/use-resource'
 import { clock, pad2, shortDate } from '@/lib/format'
@@ -25,6 +26,7 @@ onBeforeUnmount(() => clearInterval(t))
 
 /* ---- agents: search, filter, card or table ---- */
 const VIEW_KEY = 'bc.wall.view'
+const { mode: callsMode, set: setCallsMode } = useViewMode('wall-calls')
 const view = ref<ViewMode>((() => { try { return (localStorage.getItem(VIEW_KEY) as ViewMode) || 'cards' } catch { return 'cards' } })())
 const setView = (v: ViewMode): void => { view.value = v; try { localStorage.setItem(VIEW_KEY, v) } catch { /* storage blocked */ } }
 const q = ref('')
@@ -130,7 +132,7 @@ const show = (p: string) => (settings.p.mask ? maskPhone(p) : p)
             </span>
           </div>
         </div>
-        <div v-else class="scroll"><table class="rt"><thead><tr><th>Agent</th><th>Lang</th><th>State</th><th>Since</th><th class="act">Actions</th></tr></thead>
+        <div v-else class="scroll dv-table"><table class="rt"><thead><tr><th>Agent</th><th>Lang</th><th>State</th><th>Since</th><th class="act">Actions</th></tr></thead>
           <tbody><tr v-for="r in shown" :key="r.id" tabindex="0" :class="{ sel: r.id === selected }" @click="selected = r.id" @keydown.enter="selected = r.id">
             <td data-label="Agent">{{ r.name }}</td><td data-label="Lang">{{ r.langs.map((l) => l.toUpperCase()).join(' ') }}</td>
             <td data-label="State"><span class="pill" :class="r.tone">{{ r.state }}</span></td><td data-label="Since">{{ clock(r.since) }}</td>
@@ -173,8 +175,8 @@ const show = (p: string) => (settings.p.mask ? maskPhone(p) : p)
         <p v-if="coaching.data.value && !coaching.data.value.length" style="color: var(--mut); margin: 4px 0">Nothing yet. Send a prompt or listen in.</p>
       </div>
       <div v-if="wall.data.value.calls.length" class="c s12 w2">
-        <div class="hd"><Icon name="phone" /><b>Calls in progress</b></div>
-        <div class="scroll"><table class="rt"><thead><tr><th>Agent</th><th>Caller</th><th>Duration</th></tr></thead>
+        <div class="hd"><Icon name="phone" /><b>Calls in progress</b><span style="margin-left: auto"><ViewToggle :model-value="callsMode" @update:model-value="setCallsMode" /></span></div>
+        <div class="scroll" :class="callsMode === 'cards' ? 'dv-cards' : 'dv-table'"><table class="rt"><thead><tr><th>Agent</th><th>Caller</th><th>Duration</th></tr></thead>
           <tbody><tr v-for="c in wall.data.value.calls" :key="c.id"><td data-label="Agent">{{ c.agentName }}</td><td data-label="Caller">{{ show(c.caller) }}</td><td data-label="Duration">{{ clock(c.seconds) }}</td></tr></tbody></table></div>
       </div>
     </div>

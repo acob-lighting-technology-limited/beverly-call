@@ -55,7 +55,11 @@ const BEVERLY_STUBS = `
   create table if not exists public.permissions (role_key text, route_hash text, primary key (role_key, route_hash));
   -- Beverly tables the read-access views sit on. Sensitive columns are included on purpose: tests prove the views never expose them.
   create table if not exists public.customers (id uuid primary key default gen_random_uuid(), name text, customer_name text, full_name text, phone text, email text, status text default 'active',
-    site_id text, account_no text, kyc_tier int default 0, kyc_status text, created_at timestamptz default now(), vend_pin_hash text, vend_pin_salt text, kyc_data jsonb, raw_payload jsonb);
+    site_id text, site_code text, address text, upstream_id text, updated_at timestamptz default now(), account_no text, kyc_tier int default 0, kyc_status text, created_at timestamptz default now(), vend_pin_hash text, vend_pin_salt text, kyc_data jsonb, raw_payload jsonb);
+  create table if not exists public.accounts (id uuid primary key default gen_random_uuid(), customer_id uuid, account_no text, account_type text, site_id text);
+  create table if not exists public.meters (id uuid primary key default gen_random_uuid(), meter_sn text, customer_id uuid, account_id uuid, site_id text, site_code text, meter_type text, status text default 'active', tariff_id text);
+  create table if not exists public.account_bindings (id uuid primary key default gen_random_uuid(), customer_id text, meter_id text, tariff_id text, station_id text, status text default 'active', updated_at timestamptz default now());
+  create table if not exists public.oem_inventory_customers (id uuid primary key default gen_random_uuid(), external_id text, phone text);
   create table if not exists public.customer_meters (id uuid primary key default gen_random_uuid(), customer_id uuid, meter_id text, meter_type text, station_id text, tariff_id text,
     nickname text, alias text, meter_name text, status text default 'approved', created_at timestamptz default now());
   create table if not exists public.users (id uuid primary key default gen_random_uuid(), auth_user_id uuid, user_name text, email text, role_key text, station_id text, station_ids text[],

@@ -10,7 +10,7 @@ const P1 = uid('purchase-1')
 const TOKEN = '3891 2207 5561 0000 4455'
 
 beforeAll(async () => {
-  h = await boot({ BEVERLY_READ_MODE: 'db' })
+  h = await boot({ BEVERLY_READ_MODE: 'db', CALL_STATION_SCOPE: 'on' })
   const q = (s: string, p: unknown[] = []) => h.pool.query(s, p)
   await q(`insert into public.customers (id, full_name, name, phone, email, vend_pin_hash, vend_pin_salt, kyc_data, raw_payload) values
     ($1,'Musa Garba',null,'0803 555 0142','musa@x.test','HASH','SALT','{"bvn":"123"}','{"x":1}'),

@@ -30,7 +30,7 @@ interface Deps { env: Env; pool: Pool; fetchImpl?: FetchLike }
  * `BEVERLY_READ_MODE=api` calls Beverly's admin API with the agent's own token instead.
  */
 export function beverlyData({ env, pool, fetchImpl }: Deps, session: VerifiedSession): BeverlyData {
-  const actor = { id: session.user.id, role: session.user.role }
+  const actor = { id: session.user.id, role: session.user.role, scoped: env.CALL_STATION_SCOPE === 'on' }
   if (env.BEVERLY_READ_MODE === 'db') {
     return {
       customers: (q, limit) => fetchCustomersDb(pool, actor, q, limit),

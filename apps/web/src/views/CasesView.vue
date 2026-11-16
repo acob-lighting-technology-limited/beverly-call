@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue'
 import type { CaseState, PresenceRow, SupportCase } from '@beverly-call/shared'
 import Icon from '@/components/Icon.vue'
+import ViewToggle from '@/components/ViewToggle.vue'
+import { useViewMode } from '@/lib/use-view-mode'
 import PageHeader from '@/components/PageHeader.vue'
 import Pill from '@/components/Pill.vue'
 import KpiTile from '@/components/KpiTile.vue'
@@ -17,6 +19,7 @@ import { useToast } from '@/stores/toast'
 type Filter = 'all' | 'mine' | 'over' | 'done'
 const tone: Record<CaseState, string> = { Overdue: 'bad', Working: 'ye', New: 'vi', Done: 'ok' }
 const session = useSession()
+const { mode: tableMode, set: setTableMode } = useViewMode('cases')
 const toast = useToast()
 const isLead = computed(() => session.role === 'supervisor' || session.role === 'admin')
 
@@ -82,10 +85,10 @@ async function assign(agentId: string): Promise<void> {
     <div v-if="res.data.value" class="bento">
       <div class="c s8 w2">
         <div class="dtb"><label class="sch"><Icon name="x-srch" /><input v-model="q" type="search" aria-label="Search cases" placeholder="Search cases" /></label>
-          <span class="n" aria-live="polite">{{ visible.length }} results</span><FilterPopover v-model="extra" :groups="groups" /></div>
+          <span class="n" aria-live="polite">{{ visible.length }} results</span><FilterPopover v-model="extra" :groups="groups" /><ViewToggle :model-value="tableMode" @update:model-value="setTableMode" /></div>
         <div class="ss" style="max-width: 420px">
           <button v-for="f in (['all', 'mine', 'over', 'done'] as Filter[])" :key="f" :class="{ on: filter === f }" @click="filter = f">{{ { all: 'All', mine: 'Mine', over: 'Overdue', done: 'Done' }[f] }}</button></div>
-        <div class="scroll"><table class="rt"><thead><tr><th>Case</th><th>Issue</th><th>By</th><th>SLA</th><th>State</th></tr></thead>
+        <div class="scroll" :class="tableMode === 'cards' ? 'dv-cards' : 'dv-table'"><table class="rt"><thead><tr><th>Case</th><th>Issue</th><th>By</th><th>SLA</th><th>State</th></tr></thead>
           <tbody>
             <tr v-for="c in visible" :key="c.id" tabindex="0" :class="{ sel: c.id === sel?.id }" @click="selId = c.id" @keydown.enter="selId = c.id">
               <td data-label="Case">{{ c.id }}</td><td data-label="Issue">{{ c.issue }}</td><td data-label="By">{{ c.by }}</td>

@@ -9,13 +9,13 @@ import type { BeverlyStaff } from './staff-directory.js'
  * time through reveal_purchase_token(). Beverly's API enforces station scoping on these reads, so this does too:
  * admins see everything; everyone else sees only customers with a meter at one of their assigned stations.
  */
-export interface Actor { id: string; role: Role }
+export interface Actor { id: string; role: Role; /** false = the call centre serves every station (CALL_STATION_SCOPE=off, the default) */ scoped?: boolean }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Stations the actor may read, or null for no restriction. No assigned station is refused, as Beverly's own routes do. */
 export async function stationScope(pool: Pool, actor: Actor): Promise<string[] | null> {
-  if (actor.role === 'admin') return null
+  if (actor.role === 'admin' || actor.scoped === false) return null
   if (!UUID.test(actor.id)) throw new BeverlyError(403, 'No station is assigned to you in Beverly')
   const r = await pool.query<{ station_id: string | null; station_ids: string[] | null }>(
     'select station_id, station_ids from call_centre_read.staff where auth_user_id = $1 limit 1', [actor.id])
@@ -36,6 +36,7 @@ export async function fetchCustomersDb(pool: Pool, actor: Actor, q: string, limi
   const like = term ? `%${escapeLike(term)}%` : null
   const digits = term.replace(/\D/g, '')
   const digitLike = digits.length >= 7 ? `%${digits.slice(-10)}%` : null
+  if (actor.scoped === false) return fetchDirectoryDb(pool, like, digits.length >= 7 ? digits.slice(-10) : null, limit)
   const r = await pool.query<CustomerRow>(
     `select c.id, c.full_name, c.phone, w.ledger_balance_minor,
             (select array_agg(distinct upper(m.station_id)) filter (where m.station_id is not null) from call_centre_read.customer_meters m where m.customer_id = c.id) as stations,
@@ -56,10 +57,49 @@ export async function fetchCustomersDb(pool: Pool, actor: Actor, q: string, limi
   }))
 }
 
-/** The customer's meter numbers inside the actor's stations, approved links first. */
+interface DirRow { id: string; full_name: string | null; phone: string | null; meter: string | null; account_no: string | null; account_type: string | null; stations: string[] | null; tariff: string | null; ledger_balance_minor: string | null }
+
+/**
+ * The cross-station directory: every CRM customer Beverly knows, whatever the station. A customer is found by name, email,
+ * phone in any format (CRM phone, OEM phone or a number bound through Beverly Call), meter, account number or station.
+ */
+export async function fetchDirectoryDb(pool: Pool, like: string | null, tail: string | null, limit = 50): Promise<Customer[]> {
+  const r = await pool.query<DirRow>(
+    `select d.customer_id as id, max(d.full_name) as full_name,
+            coalesce(max(d.phone), (select '0' || p.phone_tail from call_centre_read.directory_phones p where p.customer_id = d.customer_id limit 1)) as phone,
+            (array_agg(d.meter_sn order by (d.meter_status = 'active') desc, d.meter_sn) filter (where d.meter_sn is not null))[1] as meter,
+            max(d.account_no) as account_no, max(d.account_type) as account_type,
+            array_agg(distinct d.station_id) filter (where d.station_id is not null) as stations,
+            (array_agg(coalesce(t.tariff_name, d.tariff_id)) filter (where d.tariff_id is not null))[1] as tariff,
+            max(w.ledger_balance_minor) as ledger_balance_minor
+     from call_centre_read.directory d
+     left join call_centre_read.wallets w on w.owner_type = 'customer' and w.owner_id = d.customer_id
+     left join call_centre_read.tariffs t on t.tariff_id = d.tariff_id and t.station_scope = '*'
+     where ($1::text is null
+            or d.full_name ilike $1 or d.phone ilike $1 or d.email ilike $1 or d.meter_sn ilike $1 or d.account_no ilike $1 or d.station_id ilike $1
+            or ($2::text is not null and exists (select 1 from call_centre_read.directory_phones p where p.customer_id = d.customer_id and p.phone_tail = $2)))
+     group by d.customer_id
+     order by (max(d.phone) is not null) desc, max(d.full_name) nulls last
+     limit $3`, [like, tail, Math.min(limit, 200)])
+  return r.rows.map((x) => ({
+    id: x.id, name: x.full_name ?? '', meter: x.meter ?? '', phone: x.phone ?? '', area: (x.stations ?? []).join(', '),
+    accountType: x.account_type ?? 'Prepaid', balance: x.ledger_balance_minor === null ? null : Number(x.ledger_balance_minor) / 100,
+    accountNo: x.account_no ?? undefined, tariff: x.tariff ?? undefined,
+  }))
+}
+
+/** The customer's meter numbers inside the actor's stations, approved links first. Unscoped, the CRM directory's meters are included too. */
 export async function fetchMetersDb(pool: Pool, actor: Actor, customerId: string): Promise<string[]> {
   if (!UUID.test(customerId)) return []
   const scope = await stationScope(pool, actor)
+  if (actor.scoped === false) {
+    const d = await pool.query<{ meter: string }>(
+      `select meter from (
+         select meter_id as meter, 0 as rank, created_at as at from call_centre_read.customer_meters where customer_id = $1 and meter_id is not null
+         union all select meter_sn, 1, created_at from call_centre_read.directory where customer_id = $1 and meter_sn is not null) x
+       order by rank, at`, [customerId])
+    return [...new Set(d.rows.map((x) => x.meter))]
+  }
   const r = await pool.query<{ meter_id: string }>(
     `select meter_id from call_centre_read.customer_meters
      where customer_id = $1 and meter_id is not null and ($2::text[] is null or upper(station_id) = any($2))
@@ -118,10 +158,19 @@ export async function fetchProfileDb(pool: Pool, actor: Actor, customerId: strin
   const row = c.rows[0]
   if (!row) return null
   const m = await pool.query<{ meter_id: string; meter_type: string | null; station_id: string | null; tariff_id: string | null; status: string | null; label: string | null }>(
-    `select meter_id, meter_type, station_id, tariff_id, status, coalesce(nickname, alias, meter_name) as label
-     from call_centre_read.customer_meters
-     where customer_id = $1 and meter_id is not null and ($2::text[] is null or upper(station_id) = any($2))
-     order by (status = 'approved') desc, created_at`, [customerId, scope])
+    actor.scoped === false
+      ? `select meter_id, meter_type, station_id, tariff_id, status, label from (
+           select meter_id, meter_type, station_id, tariff_id, status, coalesce(nickname, alias, meter_name) as label, 0 as rank, created_at as at
+           from call_centre_read.customer_meters where customer_id = $1 and meter_id is not null
+           union all
+           select d.meter_sn, d.meter_type, d.station_id, d.tariff_id, d.meter_status, null, 1, d.created_at
+           from call_centre_read.directory d where d.customer_id = $1 and d.meter_sn is not null
+             and not exists (select 1 from call_centre_read.customer_meters cm where cm.customer_id = $1 and cm.meter_id = d.meter_sn)) x
+         order by rank, at`
+      : `select meter_id, meter_type, station_id, tariff_id, status, coalesce(nickname, alias, meter_name) as label
+         from call_centre_read.customer_meters
+         where customer_id = $1 and meter_id is not null and ($2::text[] is null or upper(station_id) = any($2))
+         order by (status = 'approved') desc, created_at`, actor.scoped === false ? [customerId] : [customerId, scope])
   if (scope && !m.rowCount) return null
   const ids = [...new Set(m.rows.map((x) => x.tariff_id).filter((x): x is string => !!x))]
   const rates = new Map<string, { name: string | null; price: number | null }>()

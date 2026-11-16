@@ -13,6 +13,8 @@ const envSchema = z.object({
   BEVERLY_API_URL: z.string().url(),
   /** Where Beverly data is read from: the read-only database views (default) or Beverly's admin API with the agent's token. */
   BEVERLY_READ_MODE: z.enum(['db', 'api']).default('db'),
+  /** off (default): the call centre serves every station and finds customers through the CRM directory. on: agents only see their own stations. */
+  CALL_STATION_SCOPE: z.enum(['on', 'off']).default('off'),
   /** PEM file (path) or inline PEM that signs the database server certificate. Verification stays on. Supabase: certs/supabase-ca.pem. */
   DATABASE_SSL_CA: z.string().min(1).optional(),
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),

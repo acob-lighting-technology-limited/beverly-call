@@ -2,6 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import type { SupportPriority, SupportStats, SupportStatus, SupportTicket, SupportTicketDetail } from '@beverly-call/shared'
 import Icon from '@/components/Icon.vue'
+import ViewToggle from '@/components/ViewToggle.vue'
+import { useViewMode } from '@/lib/use-view-mode'
 import KpiTile from '@/components/KpiTile.vue'
 import StateBanner from '@/components/StateBanner.vue'
 import { api } from '@/lib/api'
@@ -13,6 +15,7 @@ import { useToast } from '@/stores/toast'
 
 const session = useSession()
 const toast = useToast()
+const { mode: tableMode, set: setTableMode } = useViewMode('tickets')
 
 const STATUSES: SupportStatus[] = ['open', 'pending', 'awaiting_customer', 'resolved', 'closed']
 const PRIORITIES: SupportPriority[] = ['low', 'normal', 'high', 'urgent']
@@ -85,7 +88,8 @@ const closed = computed(() => open.value?.status === 'closed')
           <button v-for="s in STATUSES" :key="s" :class="{ on: status === s }" @click="status = status === s ? '' : s">{{ humanStatus(s) }}</button>
         </div>
         <StateBanner :loading="tickets.loading.value && !tickets.data.value" :error="tickets.error.value" what="tickets" />
-        <div v-if="tickets.data.value" class="scroll"><table class="rt"><thead><tr><th>Ticket</th><th>Subject</th><th>From</th><th>Priority</th><th>Status</th><th>Updated</th></tr></thead>
+        <div v-if="tickets.data.value" class="vt-row"><ViewToggle :model-value="tableMode" @update:model-value="setTableMode" /></div>
+        <div v-if="tickets.data.value" class="scroll" :class="tableMode === 'cards' ? 'dv-cards' : 'dv-table'"><table class="rt"><thead><tr><th>Ticket</th><th>Subject</th><th>From</th><th>Priority</th><th>Status</th><th>Updated</th></tr></thead>
           <tbody>
             <tr v-for="t in tickets.data.value" :key="t.id" tabindex="0" :class="{ sel: t.id === open?.id }" @click="show(t)" @keydown.enter="show(t)">
               <td data-label="Ticket">{{ t.reference }}</td><td data-label="Subject" style="white-space: normal">{{ t.subject }}</td><td data-label="From">{{ t.requesterName }}</td>

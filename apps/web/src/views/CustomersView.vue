@@ -7,6 +7,8 @@ import Icon from '@/components/Icon.vue'
 import CustomerProfileCard from '@/components/CustomerProfileCard.vue'
 import KpiTile from '@/components/KpiTile.vue'
 import Modal from '@/components/Modal.vue'
+import BindNumberModal from '@/components/BindNumberModal.vue'
+import BindingsPanel from '@/components/BindingsPanel.vue'
 import StateBanner from '@/components/StateBanner.vue'
 import FilterPopover, { type FilterGroup } from '@/components/FilterPopover.vue'
 import ViewToggle, { type ViewMode } from '@/components/ViewToggle.vue'
@@ -24,6 +26,8 @@ const router = useRouter()
 const session = useSession()
 
 /* ---- directory ---- */
+const bindOpen = ref(false)
+const bindings = ref<InstanceType<typeof BindingsPanel> | null>(null)
 const q = ref('')
 const list = ref<Customer[]>([])
 const loading = ref(true)
@@ -117,8 +121,9 @@ const canCall = computed(() => session.role === 'agent' || session.role === 'sup
   <section>
     <!-- Directory -->
     <div v-if="!sel">
-      <div class="head"><div class="ht"><h1>Customers</h1></div>
+      <div class="head"><div class="ht"><h1>Customers</h1><button v-if="canCall || session.role === 'admin'" @click="bindOpen = true">Bind a number</button></div>
         <div v-hover-scroll class="kp"><KpiTile icon="users" :value="pad2(list.length)" label="Customers" /><KpiTile icon="wallet" :value="pad2(lowCount)" label="Low wallet" dark /></div></div>
+      <BindingsPanel ref="bindings" />
       <div class="cdh">
         <label class="sch"><Icon name="users" /><input v-model="q" type="search" aria-label="Search customers" placeholder="Search by name, phone, email or meter" @input="onInput" /></label>
         <FilterPopover v-model="extra" :groups="groups" /><ViewToggle :model-value="view" @update:model-value="setView" />
@@ -135,7 +140,7 @@ const canCall = computed(() => session.role === 'agent' || session.role === 'sup
           <small>{{ c.area }} · {{ show(c.phone) }}</small>
           <span class="ft"><span v-if="isLow(c)" class="pill ye">Low wallet</span><span v-else class="pill vi">All good</span></span></button>
       </div>
-      <div v-else class="c"><div class="scroll"><table class="rt cust-t"><thead><tr><th>Customer</th><th>Meter</th><th>Phone</th><th>Area</th><th>Balance</th><th>Status</th></tr></thead>
+      <div v-else class="c"><div class="scroll dv-table"><table class="rt cust-t"><thead><tr><th>Customer</th><th>Meter</th><th>Phone</th><th>Area</th><th>Balance</th><th>Status</th></tr></thead>
         <tbody><tr v-for="c in shown" :key="c.id" tabindex="0" @click="open(c)" @keydown.enter="open(c)">
           <td data-label="Customer"><span class="nmc"><span class="cav" style="background: var(--yel)">{{ initials(c.name) }}</span>{{ c.name }}</span></td><td data-label="Meter">{{ c.meter || '—' }}</td><td data-label="Phone">{{ show(c.phone) }}</td>
           <td data-label="Area">{{ c.area }}</td><td data-label="Balance">{{ money(c.balance) }}</td><td data-label="Status"><span class="pill" :class="isLow(c) ? 'ye' : 'vi'">{{ isLow(c) ? 'Low wallet' : 'All good' }}</span></td></tr></tbody></table></div></div>
@@ -195,5 +200,6 @@ const canCall = computed(() => session.role === 'agent' || session.role === 'sup
       <textarea v-model="note" rows="3" maxlength="1000" placeholder="What should the next agent know?" data-autofocus></textarea>
       <template #footer><button @click="noteOpen = false">Cancel</button><button class="y" @click="saveNote">Save note</button></template>
     </Modal>
+    <BindNumberModal :open="bindOpen" @close="bindOpen = false" @done="bindings?.load()" />
   </section>
 </template>

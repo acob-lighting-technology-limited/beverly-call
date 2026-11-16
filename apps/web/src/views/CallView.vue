@@ -6,6 +6,7 @@ import type { ActiveCall, CustomerDetail, WalletInfo } from '@beverly-call/share
 import Icon from '@/components/Icon.vue'
 import Modal from '@/components/Modal.vue'
 import CallDesk from '@/components/CallDesk.vue'
+import BindNumberModal from '@/components/BindNumberModal.vue'
 import { api } from '@/lib/api'
 import { clock, shortDate } from '@/lib/format'
 import { maskPhone } from '@/lib/mask'
@@ -23,6 +24,7 @@ const presence = usePresence()
 
 const call = ref<ActiveCall | null>(null)
 const loading = ref(true)
+const bindOpen = ref(false)
 const secs = ref(0)
 const held = ref(false)
 const muted = ref(false)
@@ -122,6 +124,7 @@ const onTouchEnd = (e: TouchEvent) => { if (touchY - e.changedTouches[0]!.client
           <div v-hover-scroll class="ctx" role="group" aria-label="Caller context">
             <button v-if="call.customer" class="chipb" @click="openChip('meter')"><Icon name="bolt" />{{ call.customer.meter }}</button>
             <button v-if="call.customer" class="chipb" @click="openChip('wallet')"><Icon name="wallet" />{{ call.customer.balance === null ? 'Bill account' : `NGN ${call.customer.balance.toLocaleString('en-US')}` }}</button>
+            <button v-if="!call.customer" class="chipb w" @click="bindOpen = true"><Icon name="users" />Unknown caller: bind number</button>
             <button v-if="call.openTickets" class="chipb w" @click="openChip('ticket')"><Icon name="flag" />{{ call.openTickets === 1 ? 'Open ticket' : `${call.openTickets} open tickets` }}</button>
             <button v-if="call.outage" class="chipb" @click="openChip('outage')"><Icon name="alert" />{{ call.outage }}</button>
           </div>
@@ -182,6 +185,7 @@ const onTouchEnd = (e: TouchEvent) => { if (touchY - e.changedTouches[0]!.client
       <label class="fl">Notes<textarea v-model="notes" rows="3" placeholder="What happened?" maxlength="2000"></textarea></label>
       <template #footer><button @click="wrapOpen = false">Cancel</button><button class="y" @click="saveWrap">Save</button></template>
     </Modal>
+    <BindNumberModal :open="bindOpen" :phone="call?.number" :call-id="call?.id" @close="bindOpen = false" />
   </section>
 </template>
 

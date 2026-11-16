@@ -8,6 +8,7 @@ import NotificationsPanel from '@/components/panels/NotificationsPanel.vue'
 import SearchPanel from '@/components/panels/SearchPanel.vue'
 import SettingsPanel from '@/components/panels/SettingsPanel.vue'
 import InboxPanels from '@/components/panels/InboxPanels.vue'
+import { useBrandMark } from '@/lib/use-brand-mark'
 import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
 import { useInbox } from '@/stores/inbox'
@@ -33,7 +34,7 @@ const showShell = computed(() => !route.meta.public && !!session.user)
 const current = computed(() => route.meta.screen as ScreenId | undefined)
 const inCall = computed(() => current.value === 'call')
 const themeIcon = computed(() => ({ light: 'sun', dark: 'moon', auto: 'auto' })[settings.p.theme])
-const mark = computed(() => (settings.isDark() ? '/brand/beverly-mark-light.png' : '/brand/beverly-mark.png'))
+const mark = useBrandMark()
 const initials = computed(() => (session.user?.name ?? '').split(/\s+/).map((w) => w[0] ?? '').join('').slice(0, 2).toUpperCase())
 const STATUS: { id: PresenceStatus; label: string }[] = [{ id: 'available', label: 'Available' }, { id: 'break', label: 'Break' }, { id: 'away', label: 'Away' }]
 const takesCalls = computed(() => session.role === 'agent' || session.role === 'supervisor')

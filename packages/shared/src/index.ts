@@ -77,6 +77,7 @@ export type Report = z.infer<typeof reportSchema>
 export const customerSchema = z.object({
   id: z.string(), name: z.string(), meter: z.string(), phone: z.string(), area: z.string(),
   accountType: z.string(), balance: z.number().nullable(),
+  accountNo: z.string().optional(), tariff: z.string().optional(),
 })
 export type Customer = z.infer<typeof customerSchema>
 

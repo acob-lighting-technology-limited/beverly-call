@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue'
 import type { Recording } from '@beverly-call/shared'
 import Icon from '@/components/Icon.vue'
+import ViewToggle from '@/components/ViewToggle.vue'
+import { useViewMode } from '@/lib/use-view-mode'
 import PageHeader from '@/components/PageHeader.vue'
 import KpiTile from '@/components/KpiTile.vue'
 import StateBanner from '@/components/StateBanner.vue'
@@ -14,6 +16,7 @@ import { useToast } from '@/stores/toast'
 
 const settings = useSettings()
 const toast = useToast()
+const { mode: tableMode, set: setTableMode } = useViewMode('recordings')
 const recs = useResource(() => api<Recording[]>('/recordings'))
 const q = ref('')
 const playing = ref<{ id: string; url: string; caller: string } | null>(null)
@@ -45,8 +48,8 @@ async function hold(r: Recording): Promise<void> {
     <StateBanner :loading="recs.loading.value" :error="recs.error.value" what="recordings" />
     <div v-if="recs.data.value" class="bento">
       <div class="c s7 w2">
-        <div class="dtb"><label class="sch"><Icon name="x-srch" /><input v-model="q" type="search" aria-label="Search recordings" placeholder="Search by caller or agent" /></label><span class="n" aria-live="polite">{{ rows.length }} results</span></div>
-        <div class="scroll"><table class="rt"><thead><tr><th>Date</th><th>Caller</th><th>Agent</th><th>Length</th><th>Expires</th><th class="act">Actions</th></tr></thead>
+        <div class="dtb"><label class="sch"><Icon name="x-srch" /><input v-model="q" type="search" aria-label="Search recordings" placeholder="Search by caller or agent" /></label><span class="n" aria-live="polite">{{ rows.length }} results</span><ViewToggle :model-value="tableMode" @update:model-value="setTableMode" /></div>
+        <div class="scroll" :class="tableMode === 'cards' ? 'dv-cards' : 'dv-table'"><table class="rt"><thead><tr><th>Date</th><th>Caller</th><th>Agent</th><th>Length</th><th>Expires</th><th class="act">Actions</th></tr></thead>
           <tbody>
             <tr v-for="r in rows" :key="r.id" :class="{ sel: r.id === playing?.id }">
               <td data-label="Date">{{ shortDate(r.date) }}</td><td data-label="Caller">{{ show(r.caller) }}</td><td data-label="Agent">{{ r.agentId.slice(0, 8) }}</td><td data-label="Length">{{ clock(r.seconds) }}</td>
