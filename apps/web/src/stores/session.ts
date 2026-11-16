@@ -8,7 +8,8 @@ import { ROLE_SCREENS } from '@/lib/roles'
  * The browser never decides who a user is; `viewAs` only changes which screens an admin previews.
  */
 /** Plain-language sign-in failures, so a down server is not mistaken for a wrong password. */
-function loginMessage(status: number): string {
+function loginMessage(status: number, error = ''): string {
+  if (status === 403 && error === 'Origin not allowed') return 'This page address is not allowed by the server. Open the app from the address it was started on.'
   if (status === 403) return 'Your account has no call centre access.'
   if (status === 429) return 'Too many attempts. Wait a minute and try again.'
   if (status >= 500) return 'Sign-in is unavailable right now. Try again shortly.'
@@ -35,7 +36,7 @@ export const useSession = defineStore('session', () => {
       headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password }),
     }).catch(() => null)
     if (!r) throw new Error('Cannot reach the server. Check your connection and try again.')
-    if (!r.ok) throw new Error(loginMessage(r.status))
+    if (!r.ok) throw new Error(loginMessage(r.status, ((await r.json().catch(() => ({}))) as { error?: string }).error))
     await load()
   }
   async function logout() {

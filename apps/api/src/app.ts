@@ -45,6 +45,15 @@ export interface AppDeps {
 }
 
 /** Builds the Fastify app. Pure function of its dependencies so tests can inject a fake pool and Beverly. */
+/** The allowed origin exactly. In development only, `localhost` and `127.0.0.1` on the same port count as the same origin. */
+export function originAllowed(origin: string | undefined, allowed: string, nodeEnv: string): boolean {
+  if (origin === allowed) return true
+  if (nodeEnv !== 'development' || !origin) return false
+  const loop = (o: string) => { try { const u = new URL(o); return ['localhost', '127.0.0.1'].includes(u.hostname) ? `${u.protocol}//loopback:${u.port}` : null } catch { return null } }
+  const a = loop(allowed)
+  return a !== null && a === loop(origin)
+}
+
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const { env } = deps
   const app = Fastify({ logger: { level: env.NODE_ENV === 'test' ? 'silent' : 'info', redact: ['req.headers.cookie', 'req.headers.authorization'] }, trustProxy: true })
@@ -62,7 +71,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   // Reject cross-site writes: browsers always send Origin on cross-origin POSTs.
   app.addHook('onRequest', async (req, reply) => {
-    if (req.method !== 'GET' && req.method !== 'HEAD' && !req.url.startsWith('/api/webhooks/') && req.headers.origin !== env.ALLOWED_ORIGIN) {
+    if (req.method !== 'GET' && req.method !== 'HEAD' && !req.url.startsWith('/api/webhooks/') && !originAllowed(req.headers.origin, env.ALLOWED_ORIGIN, env.NODE_ENV)) {
       return reply.code(403).send({ error: 'Origin not allowed' })
     }
   })

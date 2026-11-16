@@ -23,7 +23,7 @@ test('an agent lands on the call screen and cannot open admin', async ({ page })
   await signIn(page, 'agent@x.test')
   await expect(page).toHaveURL(/\/call$/)
   await expect(page.getByRole('link', { name: 'Admin' })).toHaveCount(0)
-  await page.goto('/admin')
+  await page.goto('/admin/system')
   await expect(page).toHaveURL(/\/call$/)
 })
 
@@ -69,7 +69,7 @@ test('a supervisor can resolve an escalation only with a note', async ({ page })
 
 test('an admin sees the audit log, retention proof and connection health', async ({ page }) => {
   await signIn(page, 'admin@x.test')
-  await page.goto('/admin')
+  await page.goto('/admin/system')
   await expect(page.getByText('Retention proof')).toBeVisible()
   await expect(page.getByText('Audit log')).toBeVisible()
   await expect(page.getByText('Connections')).toBeVisible()

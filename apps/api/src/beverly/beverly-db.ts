@@ -67,9 +67,11 @@ export async function fetchDirectoryDb(pool: Pool, like: string | null, tail: st
   const r = await pool.query<DirRow>(
     `select d.customer_id as id, max(d.full_name) as full_name,
             coalesce(max(d.phone), (select '0' || p.phone_tail from call_centre_read.directory_phones p where p.customer_id = d.customer_id limit 1)) as phone,
-            (array_agg(d.meter_sn order by (d.meter_status = 'active') desc, d.meter_sn) filter (where d.meter_sn is not null))[1] as meter,
+            coalesce((array_agg(d.meter_sn order by (d.meter_status = 'active') desc, d.meter_sn) filter (where d.meter_sn is not null))[1],
+                     (select m.meter_id from call_centre_read.customer_meters m where m.customer_id = d.customer_id order by (m.status = 'approved') desc, m.created_at limit 1)) as meter,
             max(d.account_no) as account_no, max(d.account_type) as account_type,
-            array_agg(distinct d.station_id) filter (where d.station_id is not null) as stations,
+            coalesce(array_agg(distinct d.station_id) filter (where d.station_id is not null),
+                     (select array_agg(distinct upper(m.station_id)) filter (where m.station_id is not null) from call_centre_read.customer_meters m where m.customer_id = d.customer_id)) as stations,
             (array_agg(coalesce(t.tariff_name, d.tariff_id)) filter (where d.tariff_id is not null))[1] as tariff,
             max(w.ledger_balance_minor) as ledger_balance_minor
      from call_centre_read.directory d

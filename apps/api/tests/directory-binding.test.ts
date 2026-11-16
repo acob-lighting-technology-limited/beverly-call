@@ -37,6 +37,14 @@ describe('directory across every station', () => {
     expect((await h.get('/api/customers?q=halima', a)).json[0]).toMatchObject({ tariff: 'Residential', area: 'KANO', meter: 'KN-0001' })
   })
 
+  it('falls back to wallet-side meter links when the CRM has no meter row', async () => {
+    const a = await h.as('agent1@x.test')
+    const id = uid('dir-wallet-only')
+    await h.pool.query(`insert into public.customers (id, full_name, phone) values ($1,'Wale Ojo','08065550111')`, [id])
+    await h.pool.query(`insert into public.customer_meters (customer_id, meter_id, station_id, status) values ($1,'WL-0001','abuja','approved')`, [id])
+    expect((await h.get('/api/customers?q=wale', a)).json[0]).toMatchObject({ meter: 'WL-0001', area: 'ABUJA' })
+  })
+
   it('lists every meter of a customer, with tariff and station on the profile', async () => {
     const a = await h.as('agent1@x.test')
     const p = (await h.get(`/api/customers/${C2}/profile`, a)).json

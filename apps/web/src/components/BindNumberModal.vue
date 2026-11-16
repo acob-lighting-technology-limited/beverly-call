@@ -86,7 +86,7 @@ async function submit(): Promise<void> {
 <style>
 .bn-l { display: grid; gap: 4px; margin-top: 10px; font-size: 13px; color: var(--mut); }
 .bn-l input { font-size: 15px; }
-.bn-r { display: grid; gap: 2px; width: 100%; text-align: left; margin-top: 6px; padding: 10px 12px; border-radius: 14px; background: var(--panel); }
+.bn-r { display: grid; justify-items: start; gap: 2px; width: 100%; text-align: left; margin-top: 6px; padding: 10px 12px; border-radius: 14px; background: var(--panel); }
 .bn-r b { font-weight: 400; } .bn-r span, .bn-h { font-size: 12px; color: var(--mut); }
 .bn-c { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 10px; padding: 10px 12px; border-radius: 14px; background: var(--panel); }
 .bn-c b { font-weight: 400; flex: 1; } .bn-c span { font-size: 12px; color: var(--mut); } .bn-x { min-width: 0; padding: 4px 10px; }

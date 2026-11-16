@@ -372,7 +372,7 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;accent-color:var(-
 /* floating layer, controls: fill + rim, no blur of their own */
 :root[data-surf=glass] :is(.ss,.chs button:not(.on),.jm button,.fbtn:not(.on),.dens:not(.on),.dtb .sch,.cdh .sch,.chip){background:linear-gradient(135deg,var(--lg-ctl-a),var(--lg-ctl-b));border:1px solid var(--lg-rim);box-shadow:var(--lg-spec);-webkit-backdrop-filter:none;backdrop-filter:none}
 /* overlays: stronger fill so text stays legible, heavier blur */
-:root[data-surf=glass] :is(.menu,.np,.fpop,.sheet,.lkc){background:linear-gradient(135deg,var(--lg-ovl-a),var(--lg-ovl-b));border:1px solid var(--lg-rim);box-shadow:var(--lg-spec),var(--lg-oshadow);-webkit-backdrop-filter:var(--lg-oblur);backdrop-filter:var(--lg-oblur)}
+:root[data-surf=glass] :is(.menu,.np,.fpop,.sheet,.lkc,.mdl){background:linear-gradient(135deg,var(--lg-ovl-a),var(--lg-ovl-b));border:1px solid var(--lg-rim);box-shadow:var(--lg-spec),var(--lg-oshadow);-webkit-backdrop-filter:var(--lg-oblur);backdrop-filter:var(--lg-oblur)}
 :root[data-surf=glass] .sheet{border-radius:var(--r-xl) var(--r-xl) 0 0}
 /* content layer: calm surface under the glass, never blurred. Semantic banners (.ban) keep their own colour. */
 :root[data-surf=glass] :is(.c:not(.dk),.cc2,.pc,.pk,.hero .dr>div,.fr){background:var(--lg-content);border:1px solid var(--lg-content-bd);box-shadow:var(--lg-content-spec),var(--sh-2);-webkit-backdrop-filter:none;backdrop-filter:none}
@@ -381,7 +381,7 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;accent-color:var(-
 :root[data-surf=glass] nav a:not(.on){color:var(--text);background:transparent}
 @media (min-width:640px){:root[data-surf=glass] nav a:not(.on){background:color-mix(in srgb,var(--text) 7%,transparent)}:root[data-surf=glass] nav a:not(.on):hover{background:color-mix(in srgb,var(--text) 14%,transparent)}}
 /* never nest blur: descendants of a blurred surface render fill only */
-:root[data-surf=glass] :is(.menu,.np,.fpop,.sheet,.lkc,nav,.subnav,.fk) *{-webkit-backdrop-filter:none;backdrop-filter:none}
+:root[data-surf=glass] :is(.menu,.np,.fpop,.sheet,.lkc,.mdl,nav,.subnav,.fk) *{-webkit-backdrop-filter:none;backdrop-filter:none}
 :root[data-surf=glass] .head{-webkit-backdrop-filter:none;backdrop-filter:none}
 /* transparent wrappers inside overlays stay clean */
 :root[data-surf=glass] :is(.hero .dr,.npl,.nph,.npt button:not(.on),.c .ss button:not(.on)){background:none;border-color:transparent;box-shadow:none}
@@ -485,3 +485,9 @@ input[type=range]{accent-color:var(--yel);padding:0;height:24px}
 .dv-table .rt .dte{display:table-row}.dv-table .rt .dte td{display:table-cell}
 .dv-table .rt tr.sel{background:none;border-radius:0}
 }
+
+/* session lock: a bottom sheet too, so every blocking dialog behaves like an app sheet */
+#lockov{place-items:end center}
+#lockov .lkc{width:min(440px,100%);max-width:none;border-radius:var(--r-xl) var(--r-xl) 0 0;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));animation:sheet-rise .32s cubic-bezier(.32,.72,0,1)}
+@keyframes sheet-rise{from{transform:translateY(100%)}}
+@media (prefers-reduced-motion:reduce){#lockov .lkc{animation:none}}

@@ -47,3 +47,15 @@ describe('sign-in', () => {
     }
   })
 })
+
+describe('origin check', () => {
+  it('treats localhost and 127.0.0.1 on the same port as one origin in development only', async () => {
+    const { originAllowed } = await import('../src/app.js')
+    expect(originAllowed('http://localhost:5173', 'http://127.0.0.1:5173', 'development')).toBe(true)
+    expect(originAllowed('http://127.0.0.1:5173', 'http://localhost:5173', 'development')).toBe(true)
+    expect(originAllowed('http://localhost:5174', 'http://127.0.0.1:5173', 'development')).toBe(false)
+    expect(originAllowed('http://localhost:5173', 'http://127.0.0.1:5173', 'production')).toBe(false)
+    expect(originAllowed('https://evil.test', 'http://127.0.0.1:5173', 'development')).toBe(false)
+    expect(originAllowed(undefined, 'http://127.0.0.1:5173', 'development')).toBe(false)
+  })
+})

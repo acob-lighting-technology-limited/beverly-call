@@ -20,7 +20,7 @@ export const router = createRouter({
     screen('wall', () => import('../views/WallView.vue')),
     screen('rec', () => import('../views/RecordingsView.vue')),
     screen('rep', () => import('../views/ReportsView.vue')),
-    screen('admin', () => import('../views/AdminView.vue')),
+    { path: '/admin/:section?', name: 'admin', component: () => import('../views/AdminView.vue'), meta: { screen: 'admin' } },
     { path: '/:rest(.*)*', redirect: '/call' },
   ],
 })

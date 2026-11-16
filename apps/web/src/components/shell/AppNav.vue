@@ -6,6 +6,7 @@ import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import Icon from '@/components/Icon.vue'
 import { useBrandMark } from '@/lib/use-brand-mark'
+import { markMorph } from '@/lib/morph'
 import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
 import { GROUPS } from '@/lib/roles'
@@ -28,7 +29,7 @@ const mark = useBrandMark(true)
 <template>
   <nav aria-label="Main">
     <img class="bmark rail-logo" :src="mark" alt="Beverly" />
-    <RouterLink v-for="g in groups" :key="g.label" :to="`/${g.reachable[0]}`" :class="{ on: g.i === groupIdx }" :title="navLabel(g.i)" :aria-label="navLabel(g.i)" :aria-current="g.i === groupIdx ? 'page' : undefined">
+    <RouterLink v-for="g in groups" :key="g.label" :to="`/${g.reachable[0]}`" :class="{ on: g.i === groupIdx }" :title="navLabel(g.i)" :aria-label="navLabel(g.i)" :aria-current="g.i === groupIdx ? 'page' : undefined" @pointerdown="markMorph">
       <Icon :name="g.icon" /><span>{{ navLabel(g.i) }}</span>
     </RouterLink>
   </nav>
