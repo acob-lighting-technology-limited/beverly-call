@@ -3,6 +3,7 @@ import { useSession } from '@/stores/session'
 import { DEFAULT_SCREEN, canOpen } from '@/lib/roles'
 import { screenTitle } from '@/lib/i18n'
 import { useSettings } from '@/stores/settings'
+import { navMemory } from '@/lib/morph'
 import type { ScreenId } from '@/types'
 
 const screen = (id: ScreenId, component: () => Promise<unknown>) =>
@@ -37,6 +38,7 @@ router.beforeEach(async (to) => {
 
 /** Keep the browser tab title and screen-reader context in step with the open screen. */
 router.afterEach((to) => {
+  if (to.meta.screen && to.meta.screen !== 'admin') navMemory.lastNormal = to.fullPath
   const id = to.meta.screen as ScreenId | undefined
   document.title = id ? `${screenTitle(useSettings().p.lang, id)} · Beverly Call` : 'Beverly Call'
 })

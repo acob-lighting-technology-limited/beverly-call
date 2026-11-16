@@ -15,3 +15,6 @@ export function morphWithin(box: DOMRect | undefined): { x: number; y: number } 
   if (!box || Date.now() - morphOrigin.at > 1500) return null
   return { x: Math.round(morphOrigin.x - box.left), y: Math.round(morphOrigin.y - box.top) }
 }
+
+/** The last normal (non-admin) screen, so the admin Back control returns to where the user was. Set by the router. */
+export const navMemory = { lastNormal: '' }

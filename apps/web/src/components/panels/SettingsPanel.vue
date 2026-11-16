@@ -75,7 +75,7 @@ function setSounds(v: boolean): void { s.p.sounds = v; try { localStorage.setIte
     <h3>Privacy and security</h3>
     <label class="sw"><span>Mask phone numbers</span><input v-model="s.p.mask" type="checkbox" /></label>
     <div class="sw"><span>Session timeout</span>
-      <select v-model.number="s.p.sessionTimeoutMin" aria-label="Session timeout" style="width: 55%"><option :value="0">Off</option><option :value="5">5 minutes</option><option :value="15">15 minutes</option><option :value="30">30 minutes</option></select></div>
+      <select v-model.number="s.p.sessionTimeoutMin" aria-label="Session timeout" style="width: 55%"><option :value="0">Off</option><option :value="5">5 minutes</option><option :value="15">15 minutes</option><option :value="30">30 minutes</option><option :value="60">1 hour</option><option :value="240">4 hours</option><option :value="480">8 hours</option></select></div>
 
     <h3>Notifications</h3>
     <label class="sw"><span>Alert sounds</span><input :checked="s.p.sounds" type="checkbox" @change="setSounds(($event.target as HTMLInputElement).checked)" /></label>

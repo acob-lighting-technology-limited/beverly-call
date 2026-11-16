@@ -5,6 +5,7 @@ import { resolveLocale, setLocale, storedLocale } from '@/lib/locale'
 import type { ThemeMode } from '@/types'
 
 const KEY = 'bc.prefs'
+const TIMEOUT_MIGRATED = 'bc.prefs.timeout8h'
 
 export interface Prefs {
   theme: ThemeMode
@@ -23,12 +24,14 @@ export interface Prefs {
 
 const DEFAULTS: Prefs = {
   theme: 'auto', pal: '', surface: 'frost', dense: false, mask: true, textSize: 100, highContrast: false, reduceMotion: false,
-  lang: 'en', sounds: true, sessionTimeoutMin: 15, mute: { esc: false, cb: false, sys: false },
+  lang: 'en', sounds: true, sessionTimeoutMin: 480, mute: { esc: false, cb: false, sys: false },
 }
 
 function load(): Prefs {
   try {
     const s = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<Prefs>
+    // The old default idle lock was 15 minutes; the new default is 8 hours. Move browsers still on the old default once.
+    if (s.sessionTimeoutMin === 15 && localStorage.getItem(TIMEOUT_MIGRATED) !== '1') { s.sessionTimeoutMin = 480; try { localStorage.setItem(TIMEOUT_MIGRATED, '1') } catch { /* storage blocked */ } }
     // Retired or unknown languages (such as the old 'pcm' interface option) become English; Beverly's own choice wins when present.
     return { ...DEFAULTS, ...s, lang: storedLocale() ?? resolveLocale((s as { lang?: unknown }).lang), mute: { ...DEFAULTS.mute, ...(s.mute ?? {}) } }
   } catch { return { ...DEFAULTS, mute: { ...DEFAULTS.mute } } }

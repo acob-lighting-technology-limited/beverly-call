@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AgentProfileCard from '@/components/AgentProfileCard.vue'
 import { computed, ref, watch } from 'vue'
 import type { HandoverView } from '@beverly-call/shared'
 import SidePanel from '@/components/SidePanel.vue'
@@ -42,7 +43,6 @@ const KEYS: [string, string][] = [['Mute', 'M'], ['Hold', 'H'], ['Keypad', 'K'],
 /* ---- Profile ---- */
 const PHOTO = 'bc.photo'
 const photo = ref<string>((() => { try { return localStorage.getItem(PHOTO) ?? '' } catch { return '' } })())
-const initials = computed(() => (session.user?.name ?? '').split(/\s+/).map((w) => w[0] ?? '').join('').slice(0, 2).toUpperCase())
 function pick(e: Event): void {
   const f = (e.target as HTMLInputElement).files?.[0]
   if (!f || !f.type.startsWith('image/') || f.size > 400_000) { toast.show('Choose an image under 400 KB'); return }
@@ -74,11 +74,13 @@ defineExpose({ photo })
   </SidePanel>
 
   <SidePanel :open="ui.panel === 'profile'" title="Profile" @close="ui.close">
-    <div class="pc"><div class="pa" :style="photo ? { backgroundImage: `url(${photo})`, backgroundSize: 'cover' } : {}">{{ photo ? '' : initials }}</div>
-      <b style="font-weight: 400; font-size: 18px">{{ session.user?.name }}</b><div style="color: var(--mut)">{{ session.user?.role }}</div>
-      <div class="btns" style="justify-content: center">
-        <label class="fbtn" style="cursor: pointer">Change photo<input type="file" accept="image/*" hidden @change="pick" /></label>
-        <button v-if="photo" @click="clearPhoto">Use initials</button></div></div>
+    <AgentProfileCard v-if="ui.panel === 'profile' && session.user" :agent-id="session.user.id" :photo="photo">
+      <template #actions>
+        <div class="btns" style="justify-content: center">
+          <label class="fbtn" style="cursor: pointer">Change photo<input type="file" accept="image/*" hidden @change="pick" /></label>
+          <button v-if="photo" @click="clearPhoto">Use initials</button></div>
+      </template>
+    </AgentProfileCard>
     <p style="color: var(--mut); font-size: 12px">The photo is kept on this device only. Your name, role and portal access come from Beverly.</p>
   </SidePanel>
 </template>

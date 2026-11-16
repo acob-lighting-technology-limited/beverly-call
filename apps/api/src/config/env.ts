@@ -20,7 +20,7 @@ const envSchema = z.object({
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
   /** Sign-in attempts allowed per minute per IP. */
   LOGIN_RATE_LIMIT: z.coerce.number().int().min(1).max(10000).default(8),
-  SESSION_TTL_MINUTES: z.coerce.number().int().min(5).max(720).default(60),
+  SESSION_TTL_MINUTES: z.coerce.number().int().min(5).max(720).default(480),
   ALLOWED_ORIGIN: z.string().url(),
   /** Shared secret Africa's Talking sends on voice webhooks. Webhooks are refused when unset. */
   AT_WEBHOOK_SECRET: z.string().min(16).optional(),

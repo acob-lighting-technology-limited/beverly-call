@@ -8,6 +8,7 @@ import CustomerProfileCard from '@/components/CustomerProfileCard.vue'
 import KpiTile from '@/components/KpiTile.vue'
 import Modal from '@/components/Modal.vue'
 import BindNumberModal from '@/components/BindNumberModal.vue'
+import CustomerWork from '@/components/CustomerWork.vue'
 import BindingsPanel from '@/components/BindingsPanel.vue'
 import StateBanner from '@/components/StateBanner.vue'
 import FilterPopover, { type FilterGroup } from '@/components/FilterPopover.vue'
@@ -60,6 +61,9 @@ const shown = computed(() => list.value.filter((c) =>
 const lowCount = computed(() => list.value.filter(isLow).length)
 const show = (p: string) => (settings.p.mask ? maskPhone(p) : p)
 const initials = (n: string) => n.split(' ').map((w) => w[0] ?? '').join('').slice(0, 2).toUpperCase()
+const hue = (n: string): number => [...n].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 17)
+const stateOf = (c: Customer): 'low' | 'none' | 'ok' => (isLow(c) ? 'low' : c.balance === null ? 'none' : 'ok')
+const stateLabel = (c: Customer): string => ({ low: 'Low wallet', none: 'No wallet', ok: 'All good' })[stateOf(c)]
 const money = (n: number | null) => (n === null ? 'Bill account' : `NGN ${n.toLocaleString('en-US')}`)
 
 /* ---- detail ---- */
@@ -114,6 +118,7 @@ async function book(): Promise<void> {
   try { await api('/callbacks', { method: 'POST', body: JSON.stringify({ phone: sel.value.phone, customerRef: sel.value.id, reason: 'Scheduled from the customer page', minutes: 30 }) }); toast.show('Callback booked for 30 minutes'); full.value = await api<CustomerFull>(`/customers/${encodeURIComponent(sel.value.id)}/full`) }
   catch { toast.show('Could not book the callback') }
 }
+async function refreshWork(): Promise<void> { if (sel.value) full.value = await api<CustomerFull>(`/customers/${encodeURIComponent(sel.value.id)}/full`).catch(() => full.value) }
 const canCall = computed(() => session.role === 'agent' || session.role === 'supervisor')
 </script>
 
@@ -134,11 +139,19 @@ const canCall = computed(() => session.role === 'agent' || session.role === 'sup
       <StateBanner :loading="loading" :error="error" what="customers" />
       <div v-if="!loading && !error && !shown.length" class="ban">No customer found. Try a name, phone, email or meter number.</div>
       <div v-if="view === 'cards'" class="cgrid">
-        <button v-for="c in shown" :key="c.id" class="cc2" :aria-label="`Open ${c.name}`" @click="open(c)">
-          <span class="cav" style="background: var(--yel)">{{ initials(c.name) }}</span><b>{{ c.name }}</b>
-          <span class="wl"><em>{{ money(c.balance) }}</em><small>{{ c.balance === null ? 'Postpaid' : 'Wallet' }}</small></span>
-          <small>{{ c.area }} · {{ show(c.phone) }}</small>
-          <span class="ft"><span v-if="isLow(c)" class="pill ye">Low wallet</span><span v-else class="pill vi">All good</span></span></button>
+        <button v-for="c in shown" :key="c.id" class="cx" :aria-label="`Open ${c.name}`" @click="open(c)">
+          <span class="cx-top">
+            <span class="cx-av" :style="{ '--h': hue(c.name) }" aria-hidden="true">{{ initials(c.name) }}</span>
+            <span class="cx-id"><b>{{ c.name || 'Unnamed customer' }}</b><small>{{ c.phone ? show(c.phone) : 'No phone on file' }}</small></span>
+            <span class="cx-st" :data-s="stateOf(c)"><i></i>{{ stateLabel(c) }}</span>
+          </span>
+          <span class="cx-meta">
+            <span><Icon name="bolt" /><em>{{ c.meter || 'No meter' }}</em></span>
+            <span v-if="c.accountNo"><Icon name="users" /><em>{{ c.accountNo }}</em></span>
+          </span>
+          <span class="cx-tags"><i v-if="c.area">{{ c.area }}</i><i v-if="c.tariff">{{ c.tariff }}</i></span>
+          <span class="cx-bal"><small>{{ c.balance === null ? 'Wallet' : 'Wallet balance' }}</small><b :class="{ none: c.balance === null }">{{ c.balance === null ? 'Not set up' : money(c.balance) }}</b></span>
+        </button>
       </div>
       <div v-else class="c"><div class="scroll dv-table"><table class="rt cust-t"><thead><tr><th>Customer</th><th>Meter</th><th>Phone</th><th>Area</th><th>Balance</th><th>Status</th></tr></thead>
         <tbody><tr v-for="c in shown" :key="c.id" tabindex="0" @click="open(c)" @keydown.enter="open(c)">
@@ -181,7 +194,8 @@ const canCall = computed(() => session.role === 'agent' || session.role === 'sup
           <div class="row"><span>Available</span><span>NGN {{ wallet.available.toLocaleString('en-US') }}</span></div></div>
         <div id="sx-t" class="c fr"><div class="hd"><Icon name="chart" /><b>Case stages</b></div>
           <div class="fn"><div v-for="s in STAGES" :key="s[0]" :style="{ width: `${s[2]}%` }"><span>{{ s[0] }}</span><b>{{ s[1] }}</b></div></div>
-          <div v-for="t in detail?.tickets ?? []" :key="t.ref" class="row"><span>{{ t.ref }}<small style="display: block; color: var(--mut)">{{ t.category }}</small></span><span class="pill" :class="t.status === 'RESOLVED' || t.status === 'CLOSED' ? 'ok' : 'bad'">{{ t.status.toLowerCase() }}</span></div></div>
+          </div>
+        <CustomerWork v-if="sel" :customer="sel" @changed="refreshWork" />
         <div id="sx-n" class="c fr"><div class="hd"><Icon name="note" /><b>Notes</b></div>
           <div v-for="(n, i) in full?.notes ?? []" :key="i" class="cm"><b>{{ n.by }}</b><span>{{ n.text }}</span><small>{{ shortDate(n.at) }}</small></div>
           <p v-if="full && !full.notes.length" style="color: var(--mut)">No notes yet.</p></div>

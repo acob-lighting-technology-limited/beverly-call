@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import type { CaseState, PresenceRow, SupportCase } from '@beverly-call/shared'
 import Icon from '@/components/Icon.vue'
+import CaseFormModal from '@/components/CaseFormModal.vue'
 import ViewToggle from '@/components/ViewToggle.vue'
 import { useViewMode } from '@/lib/use-view-mode'
 import PageHeader from '@/components/PageHeader.vue'
@@ -31,6 +32,8 @@ const filter = ref<Filter>('all')
 const q = ref('')
 const extra = ref<Record<string, string[]>>({})
 const note = ref('')
+const formOpen = ref(false)
+function created(c: SupportCase): void { if (res.data.value) res.data.value = [c, ...res.data.value]; selId.value = c.id }
 const comment = ref('')
 const busy = ref(false)
 
@@ -79,6 +82,7 @@ async function assign(agentId: string): Promise<void> {
 <template>
   <section>
     <PageHeader :title="isLead ? 'Escalations' : 'My cases'">
+      <button class="y" style="margin-bottom: 8px" @click="formOpen = true">Open a case</button>
       <div v-hover-scroll class="kp"><KpiTile icon="flag" :value="pad2(open)" label="Open" :metric="isLead ? 'open_cases' : undefined" /><KpiTile icon="clock" :value="pad2(overdue)" label="Overdue" dark :metric="isLead ? 'overdue_cases' : undefined" /><KpiTile icon="check" :value="pad2(fixed)" label="Fixed" /></div>
     </PageHeader>
     <StateBanner :loading="res.loading.value && !res.data.value" :error="res.error.value" what="cases" />
@@ -118,5 +122,6 @@ async function assign(agentId: string): Promise<void> {
         <p v-else-if="sel.state !== 'Done'" style="color: #aaa; font-size: 12px">Only the agent holding this case, or a supervisor, can change it.</p>
       </div>
     </div>
+  <CaseFormModal :open="formOpen" @close="formOpen = false" @created="created" />
   </section>
 </template>

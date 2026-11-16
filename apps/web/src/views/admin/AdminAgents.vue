@@ -6,12 +6,15 @@ import Icon from '@/components/Icon.vue'
 import StateBanner from '@/components/StateBanner.vue'
 import BarList from '@/components/charts/BarList.vue'
 import ViewToggle from '@/components/ViewToggle.vue'
+import Modal from '@/components/Modal.vue'
+import AgentProfileCard from '@/components/AgentProfileCard.vue'
 import { api } from '@/lib/api'
 import { useResource } from '@/lib/use-resource'
 import { useViewMode } from '@/lib/use-view-mode'
 import { clock } from '@/lib/format'
 
 const range = ref<ReportRange>('7')
+const opened = ref<PresenceRow | null>(null)
 const presence = useResource(() => api<PresenceRow[]>('/presence'))
 const extras = useResource(() => api<ReportExtras>(`/reports/extras?range=${range.value}`))
 watch(range, () => void extras.reload())
@@ -40,8 +43,8 @@ const RANGES: { id: ReportRange; label: string }[] = [{ id: '1', label: 'Today' 
       <div class="vt-row"><ViewToggle :model-value="mode" @update:model-value="set" /></div>
       <div class="scroll" :class="mode === 'cards' ? 'dv-cards' : 'dv-table'"><table class="rt"><thead><tr><th>Agent</th><th>Status</th><th>Languages</th><th>Time in status</th></tr></thead>
         <tbody>
-          <tr v-for="p in rows" :key="p.agentId">
-            <td data-label="Agent">{{ p.name }}</td>
+          <tr v-for="p in rows" :key="p.agentId" tabindex="0" style="cursor: pointer" @click="opened = p" @keydown.enter="opened = p">
+            <td data-label="Agent"><b style="font-weight: 400">{{ p.name }}</b><small style="display: block; color: var(--mut)">View profile and analytics</small></td>
             <td data-label="Status"><span class="pill" :class="p.online ? STATUS_TONE[p.status] : 'vi'">{{ p.online ? STATUS_LABEL[p.status] : 'Offline' }}</span></td>
             <td data-label="Languages">{{ p.languages.map((l) => LANGUAGE_NAMES[l] ?? l).join(', ') || '—' }}</td>
             <td data-label="Time in status">{{ p.online ? clock(p.sinceSeconds) : '—' }}</td>
@@ -49,6 +52,7 @@ const RANGES: { id: ReportRange; label: string }[] = [{ id: '1', label: 'Today' 
           <tr v-if="presence.data.value && !rows.length" class="dte"><td colspan="4">Nobody has signed in yet.</td></tr>
         </tbody></table></div>
     </div>
+    <Modal :open="!!opened" :title="opened?.name ?? 'Agent'" wide @close="opened = null"><AgentProfileCard v-if="opened" :agent-id="opened.agentId" /></Modal>
   </div>
 </template>
 

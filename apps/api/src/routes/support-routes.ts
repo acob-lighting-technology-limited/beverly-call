@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { supportMessageInputSchema, supportPatchSchema, supportStatusSchema } from '@beverly-call/shared'
+import { supportMessageInputSchema, supportPatchSchema, supportPrioritySchema, supportStatusSchema, type SupportTicket } from '@beverly-call/shared'
 import type { AppDeps } from '../app.js'
 import { requireRole } from '../auth/guards.js'
 import { auditAs } from '../audit/audit-request.js'
@@ -20,6 +20,26 @@ const uuid = z.string().uuid()
  */
 export const supportRoutes = ({ env, pool, fetchImpl }: AppDeps): FastifyPluginAsync => async (app) => {
   const staff = requireRole('agent', 'supervisor', 'admin')
+
+  /** Beverly support tickets raised by or for one customer (read from the shared database). Open one for the conversation. */
+  app.get<{ Params: { id: string } }>('/customers/:id/support-tickets', { preHandler: staff }, async (req, reply): Promise<SupportTicket[] | void> => {
+    if (!uuid.safeParse(req.params.id).success) return reply.code(404).send({ error: 'Customer not found' })
+    if (env.BEVERLY_READ_MODE !== 'db') return []
+    const r = await pool.query<{ id: string; reference: string; customer_id: string | null; requester_name: string | null; requester_type: string | null; category: string | null; subject: string; priority: string; status: string; assigned_to_user_id: string | null; last_message_at: Date | null; created_at: Date; meter_context: unknown }>(
+      `select id, reference, customer_id, requester_name, requester_type, category, subject, priority, status, assigned_to_user_id, last_message_at, created_at, meter_context
+       from call_centre_read.support_tickets where customer_id = $1 order by coalesce(last_message_at, created_at) desc limit 50`, [req.params.id])
+    const meter = (c: unknown): string | null => {
+      if (typeof c === 'string') return c || null
+      const o = c && typeof c === 'object' ? (c as Record<string, unknown>) : {}
+      const v = o.meter_id ?? o.meterId ?? o.meterNumber ?? o.meter
+      return typeof v === 'string' || typeof v === 'number' ? String(v) : null
+    }
+    return r.rows.map((t) => ({
+      id: t.id, reference: t.reference, subject: t.subject, category: t.category ?? 'general', priority: supportPrioritySchema.catch('normal').parse(t.priority), status: supportStatusSchema.catch('open').parse(t.status),
+      requesterType: t.requester_type ?? 'customer', requesterName: t.requester_name ?? 'Customer', customerId: t.customer_id, assignedTo: t.assigned_to_user_id,
+      lastMessageAt: (t.last_message_at ?? t.created_at).toISOString(), createdAt: t.created_at.toISOString(), meterContext: meter(t.meter_context),
+    }))
+  })
 
   app.get<{ Querystring: { status?: string; search?: string; mine?: string } }>('/support/tickets', { preHandler: staff }, async (req, reply) => {
     const status = req.query.status ? supportStatusSchema.safeParse(req.query.status) : null

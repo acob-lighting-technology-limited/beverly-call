@@ -220,3 +220,20 @@ export const phoneBindingSchema = z.object({
   decidedByName: z.string().nullable(), decisionNote: z.string().nullable(), crmResult: z.string().nullable(),
 })
 export type PhoneBinding = z.infer<typeof phoneBindingSchema>
+
+/* ---- Agent profile and analytics ---- */
+const periodStatsSchema = z.object({
+  calls: z.number().int(), answered: z.number().int(), avgHandleSeconds: z.number().int(), rating: z.number().nullable(), ratingCount: z.number().int(),
+  firstCallResolvedPct: z.number().int(), casesOpened: z.number().int(), casesResolved: z.number().int(), callbacksDone: z.number().int(),
+})
+export const agentProfileSchema = z.object({
+  id: z.string(), name: z.string(), role: z.string(), staffId: z.string(), languages: z.array(languageSchema), status: z.string().nullable(), online: z.boolean(),
+  today: periodStatsSchema, week: periodStatsSchema, month: periodStatsSchema,
+  days: z.array(z.object({ label: z.string(), calls: z.number().int() })),
+  hours: z.array(z.number().int()),
+  outcomes: z.array(z.object({ label: z.string(), count: z.number().int() })),
+  qa: z.object({ average: z.number().nullable(), scored: z.number().int() }),
+  openCases: z.number().int(), openCallbacks: z.number().int(),
+})
+export type AgentProfile = z.infer<typeof agentProfileSchema>
+export type AgentPeriodStats = z.infer<typeof periodStatsSchema>

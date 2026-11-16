@@ -71,8 +71,9 @@ export async function fetchDirectoryDb(pool: Pool, like: string | null, tail: st
                      (select m.meter_id from call_centre_read.customer_meters m where m.customer_id = d.customer_id order by (m.status = 'approved') desc, m.created_at limit 1)) as meter,
             max(d.account_no) as account_no, max(d.account_type) as account_type,
             coalesce(array_agg(distinct d.station_id) filter (where d.station_id is not null),
-                     (select array_agg(distinct upper(m.station_id)) filter (where m.station_id is not null) from call_centre_read.customer_meters m where m.customer_id = d.customer_id)) as stations,
-            (array_agg(coalesce(t.tariff_name, d.tariff_id)) filter (where d.tariff_id is not null))[1] as tariff,
+                     (select array_agg(distinct upper(m.station_id)) filter (where m.station_id is not null) from call_centre_read.customer_meters m where m.customer_id = d.customer_id),
+                     case when max(d.meter_address) is null then null else array[max(d.meter_address)] end) as stations,
+            (array_agg(coalesce(t.tariff_name, d.tariff_name, d.tariff_id)) filter (where d.tariff_id is not null or d.tariff_name is not null))[1] as tariff,
             max(w.ledger_balance_minor) as ledger_balance_minor
      from call_centre_read.directory d
      left join call_centre_read.wallets w on w.owner_type = 'customer' and w.owner_id = d.customer_id
@@ -159,13 +160,14 @@ export async function fetchProfileDb(pool: Pool, actor: Actor, customerId: strin
     'select account_no, site_id, status, kyc_tier, kyc_status, email, phone, created_at from call_centre_read.customers where id = $1', [customerId])
   const row = c.rows[0]
   if (!row) return null
-  const m = await pool.query<{ meter_id: string; meter_type: string | null; station_id: string | null; tariff_id: string | null; status: string | null; label: string | null }>(
+  const directoryAccountNo = (await pool.query<{ a: string | null }>('select max(account_no) as a from call_centre_read.directory where customer_id = $1', [customerId])).rows[0]?.a ?? null
+  const m = await pool.query<{ meter_id: string; meter_type: string | null; station_id: string | null; tariff_id: string | null; status: string | null; label: string | null; oem_name?: string | null; oem_price?: string | null }>(
     actor.scoped === false
-      ? `select meter_id, meter_type, station_id, tariff_id, status, label from (
-           select meter_id, meter_type, station_id, tariff_id, status, coalesce(nickname, alias, meter_name) as label, 0 as rank, created_at as at
+      ? `select meter_id, meter_type, station_id, tariff_id, status, label, oem_name, oem_price from (
+           select meter_id, meter_type, station_id, tariff_id, status, coalesce(nickname, alias, meter_name) as label, null::text as oem_name, null::numeric as oem_price, 0 as rank, created_at as at
            from call_centre_read.customer_meters where customer_id = $1 and meter_id is not null
            union all
-           select d.meter_sn, d.meter_type, d.station_id, d.tariff_id, d.meter_status, null, 1, d.created_at
+           select d.meter_sn, d.meter_type, coalesce(d.station_id, d.meter_address), d.tariff_id, d.meter_status, null, d.tariff_name, d.tariff_rate_ngn, 1, d.created_at
            from call_centre_read.directory d where d.customer_id = $1 and d.meter_sn is not null
              and not exists (select 1 from call_centre_read.customer_meters cm where cm.customer_id = $1 and cm.meter_id = d.meter_sn)) x
          order by rank, at`
@@ -188,10 +190,12 @@ export async function fetchProfileDb(pool: Pool, actor: Actor, customerId: strin
   }
   const rateFor = (station: string | null, id: string) => rates.get(`${(station ?? '').toUpperCase()}|${id}`) ?? rates.get(`*|${id}`)
   return {
-    account: { accountNo: row.account_no, siteId: row.site_id, status: row.status, kycTier: row.kyc_tier, kycStatus: row.kyc_status, email: row.email, phone: row.phone, since: row.created_at ? row.created_at.toISOString() : null },
+    account: { accountNo: row.account_no ?? directoryAccountNo, siteId: row.site_id, status: row.status, kycTier: row.kyc_tier, kycStatus: row.kyc_status, email: row.email, phone: row.phone, since: row.created_at ? row.created_at.toISOString() : null },
     meters: m.rows.map((x) => {
       const r = x.tariff_id ? rateFor(x.station_id, x.tariff_id) : undefined
-      return { meterId: x.meter_id, type: x.meter_type, stationId: x.station_id ? x.station_id.toUpperCase() : null, status: x.status, label: x.label, tariff: x.tariff_id ? { id: x.tariff_id, name: r?.name ?? null, pricePerKwh: r?.price ?? null } : null }
+      const name = r?.name ?? x.oem_name ?? null
+      const price = r?.price ?? (x.oem_price == null ? null : Number(x.oem_price))
+      return { meterId: x.meter_id, type: x.meter_type, stationId: x.station_id ? x.station_id.toUpperCase() : null, status: x.status, label: x.label, tariff: x.tariff_id ? { id: x.tariff_id, name, pricePerKwh: price } : null }
     }),
   }
 }

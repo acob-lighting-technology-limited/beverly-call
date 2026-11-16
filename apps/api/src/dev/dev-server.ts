@@ -82,6 +82,11 @@ const tickets: Record<string, any>[] = [
   { id: TICKET, reference: 'TKT-2026-00001', subject: 'Paid for electricity but no token', category: 'vending', priority: 'high', status: 'open', requester_actor_type: 'customer', requester_name: 'Musa Garba', customer_id: MUSA, assigned_to_user_id: null, last_message_at: new Date(Date.now() - 36e5).toISOString(), created_at: new Date(Date.now() - 72e5).toISOString(), meter_context: { meter_id: '4201 8837 112' } },
   { id: TICKET2, reference: 'TKT-2026-00002', subject: 'How do I link a second meter?', category: 'account', priority: 'normal', status: 'awaiting_customer', requester_actor_type: 'customer', requester_name: 'Ngozi Obi', customer_id: NGOZI, assigned_to_user_id: null, last_message_at: new Date(Date.now() - 864e5).toISOString(), created_at: new Date(Date.now() - 2 * 864e5).toISOString(), meter_context: null },
 ]
+// The same tickets in the shared database, so the customer profile can list them (it reads the call_centre_read view; changes go through the API above).
+for (const t of tickets) {
+  await pool.query(`insert into public.support_tickets (id, reference, requester_actor_type, requester_actor_id, requester_name, customer_id, category, subject, priority, status, last_message_at, created_at, meter_context)
+    values ($1,$2,'customer',$3,$4,$3,$5,$6,$7,$8,$9,$10,$11)`, [t.id, t.reference, t.customer_id, t.requester_name, t.category, t.subject, t.priority, t.status, t.last_message_at, t.created_at, JSON.stringify(t.meter_context)])
+}
 const messages: Record<string, any>[] = [
   { id: uid('m1'), ticket_id: TICKET, sender_actor_type: 'customer', sender_name: 'Musa Garba', body: 'I paid NGN 5,000 this morning and no token came.', is_internal: false, created_at: new Date(Date.now() - 72e5).toISOString() },
   { id: uid('m2'), ticket_id: TICKET2, sender_actor_type: 'customer', sender_name: 'Ngozi Obi', body: 'How do I link a second meter?', is_internal: false, created_at: new Date(Date.now() - 2 * 864e5).toISOString() },

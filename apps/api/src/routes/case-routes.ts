@@ -59,6 +59,12 @@ export const caseRoutes = ({ env, pool, fetchImpl, provider, push }: AppDeps): F
     return load(r.rows, req.session!.beverlyToken)
   })
 
+  /** Every escalation raised for one customer, newest first, so their profile shows what is open and what was fixed. */
+  app.get<{ Params: { id: string } }>('/customers/:id/cases', { preHandler: staff }, async (req) => {
+    const r = await pool.query<TicketRow>(`select ${COLS} from call_centre.tickets where customer_ref = $1 order by created_at desc limit 50`, [req.params.id])
+    return load(r.rows, req.session!.beverlyToken)
+  })
+
   app.post('/cases', { preHandler: staff }, async (req, reply) => {
     const body = createCaseSchema.safeParse(req.body)
     if (!body.success) return reply.code(400).send({ error: 'Invalid case' })
