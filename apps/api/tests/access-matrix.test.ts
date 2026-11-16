@@ -13,6 +13,7 @@ const ADMIN: R[] = ['admin']
 const MATRIX: Record<string, R[] | null> = {
   'GET /api/health': null, 'POST /api/auth/login': null, 'POST /api/auth/logout': null,
   'POST /api/webhooks/at/voice': null, 'POST /api/webhooks/at/sms': null,
+  'GET /api/cron/:job': null,
   'GET /api/session': STAFF,
   'PUT /api/presence': AGENT, 'DELETE /api/presence': AGENT, 'GET /api/presence/available': AGENT, 'GET /api/presence': LEAD,
   'GET /api/calls/active': AGENT, 'POST /api/calls/:id/wrap-up': AGENT, 'POST /api/calls/:id/transfer': AGENT,

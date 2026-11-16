@@ -1,9 +1,7 @@
-import { createRequire } from 'node:module'
+import * as webpush from 'web-push'
 import type { Pool } from 'pg'
 import type { Env } from '../config/env.js'
 
-// web-push is CommonJS with no default export under Node ESM, so load it through require.
-const webpush = createRequire(import.meta.url)('web-push') as typeof import('web-push')
 
 export interface NewNotification {
   userId?: string | null            // null or undefined = everyone with the call portal

@@ -39,6 +39,8 @@ const envSchema = z.object({
   VAPID_PUBLIC_KEY: z.string().min(1).optional(),
   VAPID_PRIVATE_KEY: z.string().min(1).optional(),
   VAPID_SUBJECT: z.string().min(1).default('mailto:ops@example.com'),
+  /** Bearer secret for GET /api/cron/:job (Vercel Cron sends it automatically when this is set as a project env var). 16+ chars. Cron endpoints are refused when unset. */
+  CRON_SECRET: z.string().min(16).optional(),
   RECORDING_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
 })
 export type Env = z.infer<typeof envSchema>

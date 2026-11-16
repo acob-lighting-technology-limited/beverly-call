@@ -46,8 +46,9 @@ Naming: `.ts` files kebab-case, components PascalCase, functions camelCase, no i
 
 ## Public deployment
 - Web: static build (`apps/web/dist`) on Vercel; `vercel.json` sets security headers and a CSP.
-- API: container (`apps/api/Dockerfile`) on any host with TLS. Health check: `GET /api/health`.
-- The browser calls `/api/*` on its own origin; Vercel rewrites it to the API host so the session cookie is first-party. Set the destination in `vercel.json`.
+- API: runs as a Vercel Function in the same project as the web app, the way Beverly hosts its own API. `apps/api` is bundled by esbuild (`pnpm --filter @beverly-call/api build:serverless`) into `apps/api/dist/serverless.mjs`; `api/index.mjs` exports it and `vercel.json` rewrites `/api/:path*` to it, carrying the original path. The `Dockerfile` remains for hosting the API elsewhere. Health check: `GET /api/health`.
+- The browser calls `/api/*` on its own origin, so the session cookie is first-party and there is no separate API host. Allowed origin and public URL default to the deployment host (`VERCEL_PROJECT_PRODUCTION_URL` in production); set `ALLOWED_ORIGIN` to override, for example for a custom domain.
+- Scheduled jobs run through `GET /api/cron/:job` (purge, ingest, sweep, verify-audit) with `Authorization: Bearer $CRON_SECRET`. `vercel.json` schedules purge and verify-audit daily. Ingest and sweep need a per-minute caller (Vercel Pro cron, Supabase Cron or any scheduler hitting the same endpoint).
 - Public exposure means: strict origin check on writes, per-IP rate limits (8 logins per minute), helmet headers, no stack traces to clients, redacted logs.
 
 ## Done in this version
@@ -60,7 +61,6 @@ Naming: `.ts` files kebab-case, components PascalCase, functions camelCase, no i
 - Apply `supabase/migrations/20261116110000_call_centre_extensions.sql (copied into the Beverly repo, uncommitted)` in the Beverly repo (supervisor role, ticket comments, amount, settings, retention log). Until then, comments, settings and the retention panel will fail against a real database.
 - Provide `AT_WEBHOOK_SECRET` and the recordings storage key; create the `call-recordings` bucket.
 - Confirm with the Beverly team: RLS lets staff read their own `public.users` row; the field names of `/api/v1/admin/customers`, `/customers/:id/purchases` and `/staff` (all isolated in single mappers, marked TODO(debt)).
-- Replace `REPLACE_WITH_API_HOST` in `vercel.json`.
 
 ## Known debt
 - The webhook registers recordings with a placeholder storage key; an ingest worker must copy the carrier-hosted file into the bucket.
@@ -102,3 +102,5 @@ Local checks: `pnpm dev:mock` seeds Beverly's tables in memory and reads them th
 ## Admin console
 Admin is a workspace, not a page. Opening it morphs out of the Admin rail button, and the same left rail (bottom bar on mobile) turns into the admin tabs with a Back item; the header also has a Back button. Back returns to the last normal screen (`navMemory` in `lib/morph.ts`, set by the router). Sections are routes, `/admin/:section` (`lib/admin-sections.ts`): overview (live call pipeline with drill-down sheets, service level, agents online, trends), analytics, agents, quality, users and roles, settings, system and audit. Section views live in `views/admin/`; chart primitives in `components/charts/`. All data comes from existing endpoints (`/wall`, `/presence`, `/reports`, `/reports/extras`, `/metrics/:key`, `/cases`, `/callbacks`, `/recordings`, `/qa/sample`, `/admin/*`, `/audit`).
 Modals (`components/Modal.vue`) are bottom sheets: they slide up, show a grab handle and dismiss by swiping down.
+
+Audit log: `GET /api/audit?page&pageSize&q` (admin) returns one page, newest first, with a total and an optional text filter; the System section shows it as a searchable, paginated table (or cards).

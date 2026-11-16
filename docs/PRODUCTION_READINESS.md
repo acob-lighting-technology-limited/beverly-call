@@ -16,15 +16,15 @@ Safe to start operating **once the go-live blockers below are done**. The two hi
 | 6 | Low | Request bodies capped at the 1 MB default. | 256 KB cap (all bodies here are small). |
 | 7 | Functional | Admin console got HTTP 403 on `GET /api/callbacks`. | Admin may now read the queue (read-only); matrix test updated. |
 | 8 | Config | CSP lacked `base-uri`, `object-src`, `form-action`; no HSTS or COOP/CORP. | Added in `vercel.json`. |
-| 9 | Config | `vercel.json` still contains `REPLACE_WITH_API_HOST`. | Production builds now fail until it is replaced (`scripts/check-deploy.mjs`). |
+| 9 | Config | `vercel.json` pointed `/api` at a placeholder host. | The API now runs as a Vercel Function in the same project (no external host). Production builds fail until the required environment variables are set (`scripts/check-deploy.mjs`). |
 
 ## Go-live blockers (need your input or access)
-1. **API host.** Replace `REPLACE_WITH_API_HOST` in `vercel.json` with the real API host. The production web build now refuses to build until you do.
-2. **Beverly migrations.** Apply in the Beverly project, in order: call-centre schema and extensions, `read_access`, `tariffs` (`db/baseline/`). Set the `beverly_call_api` password and `DATABASE_URL`/`DATABASE_SSL_CA`.
+1. **Vercel project environment (Production).** Set `DATABASE_URL`, `BEVERLY_AUTH_URL`, `BEVERLY_AUTH_ANON_KEY`, `BEVERLY_API_URL`, `SESSION_SECRET` and `CRON_SECRET`. The production build refuses to run until they exist. `ALLOWED_ORIGIN` and `API_PUBLIC_URL` default to the production host; set them only for a custom domain.
+3. **Production hardening.** The Vercel Function forces `NODE_ENV=production` (Secure cookies). Keep `SESSION_TTL_MINUTES=480` and `TRUST_PROXY_HOPS=1` (the defaults) unless the topology changes, and use a fresh random `SESSION_SECRET` that is not reused anywhere else.
 3. **Production environment.** `NODE_ENV=production` (enables Secure cookies), exact `ALLOWED_ORIGIN`, a fresh random `SESSION_SECRET` (32+ chars, not reused), `TRUST_PROXY_HOPS` equal to the proxies in front of the API (Vercel rewrite = 1), `SESSION_TTL_MINUTES=480`.
 4. **Carrier.** `AT_WEBHOOK_SECRET`, Africa's Talking credentials and virtual number, callback URLs registered. The carrier sends the secret in the query string, so rotate it on a schedule.
 5. **Recordings.** Create the `call-recordings` bucket and set `RECORDINGS_STORAGE_URL` / `RECORDINGS_STORAGE_KEY`.
-6. **Scheduler.** Run `ingest` and `sweep` every minute, `purge` and `verify-audit` daily (`pnpm --filter @beverly-call/api job <name>`).
+6. **Scheduler.** Vercel runs `purge` and `verify-audit` daily from `vercel.json` through `GET /api/cron/:job`. `ingest` and `sweep` need to run every minute: use Vercel Pro cron, Supabase Cron or any scheduler calling the same endpoint with the `CRON_SECRET` bearer token. Without them recordings are not ingested and alerts are not raised.
 7. **Super admin sign-in.** Confirm on the real project: the user's `public.users` row has `role_key = super-admin` and `portal_access` includes `call`. The API now logs the exact refusal reason.
 
 ## Decisions to make
