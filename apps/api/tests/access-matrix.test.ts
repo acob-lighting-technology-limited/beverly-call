@@ -21,7 +21,7 @@ const MATRIX: Record<string, R[] | null> = {
   'POST /api/callbacks/:id/reschedule': AGENT, 'POST /api/callbacks/:id/start': AGENT, 'POST /api/callbacks/:id/complete': AGENT,
   'GET /api/cases': LEAD, 'GET /api/cases/mine': STAFF, 'POST /api/cases': STAFF, 'POST /api/cases/:id/assign': LEAD,
   'POST /api/cases/:id/resolve': STAFF, 'POST /api/cases/:id/comments': STAFF,
-  'GET /api/customers': STAFF, 'GET /api/customers/:id/detail': STAFF, 'GET /api/customers/:id/full': STAFF, 'GET /api/customers/:id/wallet': STAFF,
+  'GET /api/customers': STAFF, 'GET /api/customers/:id/detail': STAFF, 'GET /api/customers/:id/full': STAFF, 'GET /api/customers/:id/wallet': STAFF, 'GET /api/customers/:id/profile': STAFF,
   'GET /api/support/tickets': STAFF, 'GET /api/support/stats': STAFF, 'GET /api/support/tickets/:id': STAFF, 'PATCH /api/support/tickets/:id': STAFF, 'POST /api/support/tickets/:id/messages': STAFF,
   'POST /api/customers/:id/notes': STAFF, 'POST /api/customers/sms': STAFF, 'POST /api/customers/:id/token-reveal': STAFF,
   'GET /api/notifications': STAFF, 'POST /api/notifications/read': STAFF, 'GET /api/handover': STAFF, 'POST /api/handover': STAFF,

@@ -2,8 +2,9 @@
 import { humanStatus, purchaseTone } from '@/lib/status'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { Customer, CustomerDetail, CustomerFull, WalletInfo } from '@beverly-call/shared'
+import type { Customer, CustomerDetail, CustomerFull, CustomerProfile, WalletInfo } from '@beverly-call/shared'
 import Icon from '@/components/Icon.vue'
+import CustomerProfileCard from '@/components/CustomerProfileCard.vue'
 import KpiTile from '@/components/KpiTile.vue'
 import Modal from '@/components/Modal.vue'
 import StateBanner from '@/components/StateBanner.vue'
@@ -62,16 +63,18 @@ const sel = ref<Customer | null>(null)
 const detail = ref<CustomerDetail | null>(null)
 const full = ref<CustomerFull | null>(null)
 const wallet = ref<WalletInfo | null>(null)
+const profile = ref<CustomerProfile | null>(null)
 const detailError = ref('')
 
 async function open(c: Customer): Promise<void> {
-  sel.value = c; detail.value = null; full.value = null; wallet.value = null; detailError.value = ''
+  sel.value = c; detail.value = null; full.value = null; wallet.value = null; profile.value = null; detailError.value = ''
   if (route.query.open !== c.id) void router.replace({ path: '/cust', query: { open: c.id } })
   const id = encodeURIComponent(c.id)
-  const [d, f, w] = await Promise.allSettled([api<CustomerDetail>(`/customers/${id}/detail`), api<CustomerFull>(`/customers/${id}/full`), api<WalletInfo>(`/customers/${id}/wallet`)])
+  const [d, f, w, pr] = await Promise.allSettled([api<CustomerDetail>(`/customers/${id}/detail`), api<CustomerFull>(`/customers/${id}/full`), api<WalletInfo>(`/customers/${id}/wallet`), api<CustomerProfile>(`/customers/${id}/profile`)])
   if (d.status === 'fulfilled') detail.value = d.value; else detailError.value = 'Purchase history could not be loaded.'
   if (f.status === 'fulfilled') full.value = f.value
   if (w.status === 'fulfilled') wallet.value = w.value
+  if (pr.status === 'fulfilled') profile.value = pr.value
 }
 function back(): void { sel.value = null; void router.replace({ path: '/cust' }) }
 async function openById(id: string): Promise<void> {
@@ -166,6 +169,7 @@ const canCall = computed(() => session.role === 'agent' || session.role === 'sup
           <p v-if="full && !full.timeline.length" style="color: var(--mut)">Nothing recorded for this customer yet.</p></div>
       </div>
       <div class="col s4 w2">
+        <CustomerProfileCard v-if="profile" :profile="profile" />
         <div v-if="wallet" class="c fr"><div class="hd"><Icon name="wallet" /><b>Wallet</b><span class="pill" :class="wallet.status === 'active' ? 'ok' : 'ye'">{{ wallet.status }}</span></div>
           <div class="row"><span>Balance</span><b style="font-weight: 400">NGN {{ wallet.balance.toLocaleString('en-US') }}</b></div>
           <div class="row"><span>On hold</span><span>NGN {{ wallet.holds.toLocaleString('en-US') }}</span></div>

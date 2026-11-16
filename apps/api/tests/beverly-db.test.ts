@@ -149,3 +149,28 @@ describe('what the views expose', () => {
     for (const role of ['anon', 'authenticated', 'public']) expect(await can(`select has_function_privilege('${role}','call_centre_read.reveal_purchase_token(uuid)','execute') ok`), role).toBe(false)
   })
 })
+
+describe('customer profile: account, stations, meters and tariffs', () => {
+  beforeAll(async () => {
+    const q = (s: string, p: unknown[] = []) => h.pool.query(s, p)
+    await q("update public.customers set account_no = 'ACC-1042', site_id = 'KN-01', kyc_tier = 2, kyc_status = 'verified' where id = $1", [C1])
+    await q("update public.customer_meters set tariff_id = 'T-RES' where customer_id = $1 and meter_id = '4201 8837 112'", [C1])
+    await q(`insert into public.tariff_rate_history (station_scope, tariff_id, tariff_name, unit_price_ngn, effective_price_ngn, effective_from) values
+      ('*','T-RES','Residential',60,60,'2026-01-01'), ('KANO NORTH','T-RES','Residential Kano',65,68.5,'2026-02-01'), ('KANO NORTH','T-RES','Residential Kano (old)',50,50,'2025-01-01')`)
+  })
+
+  it('returns the account, each meter with its station, and the latest station-specific tariff', async () => {
+    const a = await h.as('agent1@x.test')
+    const r = await h.get(`/api/customers/${C1}/profile`, a)
+    expect(r.status).toBe(200)
+    expect(r.json.account).toMatchObject({ accountNo: 'ACC-1042', siteId: 'KN-01', kycTier: 2, kycStatus: 'verified', email: 'musa@x.test' })
+    const m = r.json.meters.find((x: { meterId: string }) => x.meterId === '4201 8837 112')
+    expect(m).toMatchObject({ stationId: 'KANO NORTH', status: 'approved', tariff: { id: 'T-RES', name: 'Residential Kano', pricePerKwh: 68.5 } })
+    expect(JSON.stringify(r.json)).not.toMatch(/HASH|SALT|bvn/)
+  })
+
+  it('hides customers outside the agent’s stations', async () => {
+    const a = await h.as('agent1@x.test')
+    expect((await h.get(`/api/customers/${C3}/profile`, a)).status).toBe(404)
+  })
+})

@@ -126,6 +126,21 @@ export const customerFullSchema = z.object({
 })
 export type CustomerFull = z.infer<typeof customerFullSchema>
 
+/** Everything the call desk shows about a customer from Beverly's management pages: account, stations, meters and tariffs. */
+export const meterProfileSchema = z.object({
+  meterId: z.string(), type: z.string().nullable(), stationId: z.string().nullable(), status: z.string().nullable(), label: z.string().nullable(),
+  tariff: z.object({ id: z.string(), name: z.string().nullable(), pricePerKwh: z.number().nullable() }).nullable(),
+})
+export const customerProfileSchema = z.object({
+  account: z.object({
+    accountNo: z.string().nullable(), siteId: z.string().nullable(), status: z.string().nullable(), kycTier: z.number().int().nullable(),
+    kycStatus: z.string().nullable(), email: z.string().nullable(), phone: z.string().nullable(), since: z.string().nullable(),
+  }),
+  meters: z.array(meterProfileSchema),
+})
+export type MeterProfile = z.infer<typeof meterProfileSchema>
+export type CustomerProfile = z.infer<typeof customerProfileSchema>
+
 /* ---- Metrics and report extras ---- */
 export const metricKeySchema = z.enum(['calls', 'handle_time', 'abandoned', 'service_level', 'open_cases', 'overdue_cases'])
 export type MetricKey = z.infer<typeof metricKeySchema>

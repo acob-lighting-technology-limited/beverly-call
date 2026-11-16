@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync, FastifyReply } from 'fastify'
-import type { Customer, CustomerDetail, CustomerFull, TimelineEvent, WalletInfo } from '@beverly-call/shared'
+import type { Customer, CustomerDetail, CustomerFull, CustomerProfile, TimelineEvent, WalletInfo } from '@beverly-call/shared'
 import { customerSmsSchema, noteSchema, tokenRevealSchema } from '@beverly-call/shared'
 import type { AppDeps } from '../app.js'
 import { requireRole } from '../auth/guards.js'
@@ -51,6 +51,16 @@ export const customerRoutes = ({ env, pool, fetchImpl, provider }: AppDeps): Fas
     try {
       const w = await beverlyData({ env, pool, fetchImpl }, req.session!).wallet(req.params.id)
       return w ?? (reply.code(404).send({ error: 'No wallet for this customer' }) as unknown as void)
+    } catch (e) { return beverlyFail(reply, e) }
+  })
+
+  /** Account, station, meter and tariff details from Beverly's management pages. */
+  app.get<{ Params: { id: string } }>('/customers/:id/profile', { preHandler: staff }, async (req, reply): Promise<CustomerProfile | void> => {
+    try {
+      const p = await beverlyData({ env, pool, fetchImpl }, req.session!).profile(req.params.id)
+      if (!p) return reply.code(404).send({ error: 'No profile for this customer' }) as unknown as void
+      await auditAs(pool, req, 'customer.profile', 'customer', req.params.id)
+      return p
     } catch (e) { return beverlyFail(reply, e) }
   })
 

@@ -65,6 +65,8 @@ const BEVERLY_STUBS = `
   create or replace view public.v_wallet_balances as
     select w.id as wallet_id, w.currency, w.status, coalesce(s.ledger_balance_minor, 0) ledger_balance_minor, coalesce(s.active_holds_minor, 0) active_holds_minor, coalesce(s.available_balance_minor, 0) available_balance_minor
     from public.wallets w left join public.wallet_balances_stub s on s.wallet_id = w.id;
+  create table if not exists public.tariff_rate_history (station_scope text not null default '*', tariff_id text not null, tariff_name text not null default '', raw_price text not null default '', unit_price_ngn numeric,
+    tax_pct numeric not null default 0, effective_price_ngn numeric, is_valid boolean not null default false, effective_from date not null, primary key (station_scope, tariff_id, effective_from));
   create table if not exists public.purchase_orders (id uuid primary key default gen_random_uuid(), actor_type text, actor_id uuid, wallet_id uuid, customer_id text, customer_name text,
     meter_id text, station_id text, tariff_id text, amount_minor bigint, units_kwh numeric, purchase_mode text default 'wallet', token text, status text, delivery_state text,
     failure_reason text, idempotency_key text, created_at timestamptz default now(), updated_at timestamptz default now());

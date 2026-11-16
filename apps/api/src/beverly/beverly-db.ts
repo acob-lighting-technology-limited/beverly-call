@@ -1,5 +1,5 @@
 import type { Pool } from 'pg'
-import type { Customer, Role, RoleSummary, WalletInfo } from '@beverly-call/shared'
+import type { Customer, CustomerProfile, Role, RoleSummary, WalletInfo } from '@beverly-call/shared'
 import { BeverlyError } from './beverly-api.js'
 import type { BeverlyStaff } from './staff-directory.js'
 
@@ -104,6 +104,45 @@ export async function fetchWalletDb(pool: Pool, actor: Actor, customerId: string
   const w = r.rows[0]
   if (!w) return null
   return { status: w.status, currency: w.currency, balance: Number(w.ledger_balance_minor ?? 0) / 100, holds: Number(w.active_holds_minor ?? 0) / 100, available: Number(w.available_balance_minor ?? 0) / 100 }
+}
+
+/**
+ * Account, station, meter and tariff details for one customer the actor may see (same station scope as meters).
+ * Tariffs come from the optional call_centre_read.tariffs view; when it is not installed yet, meters show their tariff id only.
+ */
+export async function fetchProfileDb(pool: Pool, actor: Actor, customerId: string): Promise<CustomerProfile | null> {
+  if (!UUID.test(customerId)) return null
+  const scope = await stationScope(pool, actor)
+  const c = await pool.query<{ account_no: string | null; site_id: string | null; status: string | null; kyc_tier: number | null; kyc_status: string | null; email: string | null; phone: string | null; created_at: Date | null }>(
+    'select account_no, site_id, status, kyc_tier, kyc_status, email, phone, created_at from call_centre_read.customers where id = $1', [customerId])
+  const row = c.rows[0]
+  if (!row) return null
+  const m = await pool.query<{ meter_id: string; meter_type: string | null; station_id: string | null; tariff_id: string | null; status: string | null; label: string | null }>(
+    `select meter_id, meter_type, station_id, tariff_id, status, coalesce(nickname, alias, meter_name) as label
+     from call_centre_read.customer_meters
+     where customer_id = $1 and meter_id is not null and ($2::text[] is null or upper(station_id) = any($2))
+     order by (status = 'approved') desc, created_at`, [customerId, scope])
+  if (scope && !m.rowCount) return null
+  const ids = [...new Set(m.rows.map((x) => x.tariff_id).filter((x): x is string => !!x))]
+  const rates = new Map<string, { name: string | null; price: number | null }>()
+  if (ids.length) {
+    try {
+      const t = await pool.query<{ station_scope: string; tariff_id: string; tariff_name: string | null; effective_price_ngn: string | null; unit_price_ngn: string | null }>(
+        'select station_scope, tariff_id, tariff_name, effective_price_ngn, unit_price_ngn from call_centre_read.tariffs where tariff_id = any($1)', [ids])
+      for (const x of t.rows) {
+        const p = x.effective_price_ngn ?? x.unit_price_ngn
+        rates.set(`${x.station_scope.toUpperCase()}|${x.tariff_id}`, { name: x.tariff_name || null, price: p === null ? null : Number(p) })
+      }
+    } catch { /* tariffs view not installed yet: show ids only */ }
+  }
+  const rateFor = (station: string | null, id: string) => rates.get(`${(station ?? '').toUpperCase()}|${id}`) ?? rates.get(`*|${id}`)
+  return {
+    account: { accountNo: row.account_no, siteId: row.site_id, status: row.status, kycTier: row.kyc_tier, kycStatus: row.kyc_status, email: row.email, phone: row.phone, since: row.created_at ? row.created_at.toISOString() : null },
+    meters: m.rows.map((x) => {
+      const r = x.tariff_id ? rateFor(x.station_id, x.tariff_id) : undefined
+      return { meterId: x.meter_id, type: x.meter_type, stationId: x.station_id ? x.station_id.toUpperCase() : null, status: x.status, label: x.label, tariff: x.tariff_id ? { id: x.tariff_id, name: r?.name ?? null, pricePerKwh: r?.price ?? null } : null }
+    }),
+  }
 }
 
 /** Every role with how many staff hold it and how many permissions it carries. */

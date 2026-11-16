@@ -95,3 +95,6 @@ Where Beverly Call now follows what Beverly already does, instead of its own voc
 - **Statuses.** Purchase statuses use Beverly's: delivered is good, failed and reversed are bad, the rest in progress.
 
 Local checks: `pnpm dev:mock` seeds Beverly's tables in memory and reads them through the same views. `pnpm e2e` starts its own servers on ports 5199 and 8799 so it never touches a dev server already running.
+
+## Customer profile (account, stations, meters, tariffs)
+`GET /api/customers/:id/profile` returns the account (account number, site, status, KYC, contact), each meter with its station, and the tariff name and price per kWh. Source: `call_centre_read.customers` and `customer_meters`, plus `call_centre_read.tariffs` (latest rate per station scope, from Beverly's `tariff_rate_history`; migration `db/baseline/20261116130000_call_centre_read_tariffs.sql`, to be copied into the Beverly repo and applied). If the tariffs view is not installed yet, meters show the tariff id only. Station scoping is the same as for meters and purchases; every view is audited as `customer.profile`. Only the database read mode provides it; API mode returns 404.

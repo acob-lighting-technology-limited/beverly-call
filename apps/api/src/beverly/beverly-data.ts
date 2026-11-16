@@ -1,12 +1,12 @@
 import type { Pool } from 'pg'
-import type { Customer, RoleSummary, WalletInfo } from '@beverly-call/shared'
+import type { Customer, CustomerProfile, RoleSummary, WalletInfo } from '@beverly-call/shared'
 import type { Env } from '../config/env.js'
 import type { VerifiedSession } from '../auth/session-token.js'
 import { fetchCustomers, fetchMeters, fetchPurchases, fetchWallet } from './beverly-api.js'
 import type { FetchLike } from './beverly-auth.js'
 import { fetchCustomersDb, fetchMetersDb, fetchPurchasesDb, fetchRolesDb, fetchWalletDb, revealTokenDb } from './beverly-db.js'
 import { fetchStaff, type BeverlyStaff } from './staff-directory.js'
-import { fetchStaffDb } from './beverly-db.js'
+import { fetchStaffDb, fetchProfileDb } from './beverly-db.js'
 
 /** Beverly data the call desk reads, independent of where it comes from (database views or Beverly's admin API). */
 export interface BeverlyData {
@@ -17,6 +17,8 @@ export interface BeverlyData {
   revealToken(customerId: string, purchaseId: string): Promise<string | null>
   staff(): Promise<(BeverlyStaff & { role_label?: string | null })[]>
   wallet(customerId: string): Promise<WalletInfo | null>
+  /** Account, stations, meters and tariffs. Only the database source has them. */
+  profile(customerId: string): Promise<CustomerProfile | null>
   /** Roles with people and permission counts. Only the database source has them. */
   roles(): Promise<RoleSummary[]>
 }
@@ -37,6 +39,7 @@ export function beverlyData({ env, pool, fetchImpl }: Deps, session: VerifiedSes
       revealToken: (customerId, purchaseId) => revealTokenDb(pool, actor, customerId, purchaseId),
       staff: () => fetchStaffDb(pool),
       wallet: (id) => fetchWalletDb(pool, actor, id),
+      profile: (id) => fetchProfileDb(pool, actor, id),
       roles: () => fetchRolesDb(pool),
     }
   }
@@ -51,5 +54,6 @@ export function beverlyData({ env, pool, fetchImpl }: Deps, session: VerifiedSes
     staff: () => fetchStaff(env, session.beverlyToken, fetchImpl),
     wallet: (id) => fetchWallet(env, session.beverlyToken, id, fetchImpl),
     roles: async () => [],
+    profile: async () => null,
   }
 }

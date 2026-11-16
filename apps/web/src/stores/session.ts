@@ -7,6 +7,14 @@ import { ROLE_SCREENS } from '@/lib/roles'
  * The session comes from the API (httpOnly cookie, Beverly staff sign-on, portal_access = call).
  * The browser never decides who a user is; `viewAs` only changes which screens an admin previews.
  */
+/** Plain-language sign-in failures, so a down server is not mistaken for a wrong password. */
+function loginMessage(status: number): string {
+  if (status === 403) return 'Your account has no call centre access.'
+  if (status === 429) return 'Too many attempts. Wait a minute and try again.'
+  if (status >= 500) return 'Sign-in is unavailable right now. Try again shortly.'
+  return 'Sign-in failed. Check your details.'
+}
+
 export const useSession = defineStore('session', () => {
   const user = ref<SessionUser | null>(null)
   const viewAs = ref<Role | null>(null)
@@ -25,8 +33,9 @@ export const useSession = defineStore('session', () => {
     const r = await fetch('/api/auth/login', {
       method: 'POST', credentials: 'same-origin',
       headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password }),
-    })
-    if (!r.ok) throw new Error(r.status === 403 ? 'Your account has no call centre access.' : 'Sign-in failed. Check your details.')
+    }).catch(() => null)
+    if (!r) throw new Error('Cannot reach the server. Check your connection and try again.')
+    if (!r.ok) throw new Error(loginMessage(r.status))
     await load()
   }
   async function logout() {
