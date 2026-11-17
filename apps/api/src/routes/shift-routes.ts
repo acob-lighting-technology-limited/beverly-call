@@ -175,7 +175,7 @@ export const shiftRoutes = ({ env, pool, fetchImpl, push }: AppDeps): FastifyPlu
     const people = new Map<string, { name: string; role: string | null }>()
     const staff = await beverlyData({ env, pool, fetchImpl }, req.session!).staff().catch(() => [])
     for (const s of staff) if (s.portal_access?.includes('call') && (s.auth_user_id ?? s.id)) people.set((s.auth_user_id ?? s.id)!, { name: s.user_name ?? s.email ?? 'Staff', role: s.role_label ?? s.role_key ?? null })
-    const extra = await pool.query<{ id: string }>('select agent_crm_id as id from call_centre.agent_rotation union select agent_crm_id from call_centre.agent_presence')
+    const extra = await pool.query<{ id: string }>(`select agent_crm_id as id from call_centre.agent_rotation union select agent_crm_id from call_centre.agent_presence where not ('role:admin' = any(skills))`)
     const names = await staffNames(env, req.session!.beverlyToken, fetchImpl, pool).catch(() => new Map<string, string>())
     for (const e of extra.rows) if (!people.has(e.id)) people.set(e.id, { name: names.get(e.id) ?? 'Agent', role: null })
     const ids = [...people.keys()]

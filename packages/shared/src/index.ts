@@ -62,6 +62,8 @@ export type WallSnapshot = z.infer<typeof wallSchema>
 export const recordingSchema = z.object({
   id: z.string(), date: z.string(), caller: z.string(), agentId: z.string(), seconds: z.number().int(),
   expiresAt: z.string(), legalHold: z.boolean(),
+  /** The agent's display name from Beverly's staff directory, when known. */
+  agentName: z.string().nullish(),
 })
 export type Recording = z.infer<typeof recordingSchema>
 

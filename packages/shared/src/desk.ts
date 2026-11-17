@@ -11,14 +11,19 @@ export const LANGUAGE_NAMES: Record<LanguageCode, string> = { en: 'English', ha:
 
 export const presenceStatusSchema = z.enum(['available', 'busy', 'acw', 'break', 'away'])
 export type PresenceStatus = z.infer<typeof presenceStatusSchema>
+/** What a person can set for themselves. Busy and wrap-up are set by the server from the live call, never by the browser. */
+export const selfPresenceStatusSchema = z.enum(['available', 'break', 'away'])
+export type SelfPresenceStatus = z.infer<typeof selfPresenceStatusSchema>
 export const setPresenceSchema = z.object({
-  status: presenceStatusSchema,
+  status: selfPresenceStatusSchema,
   languages: z.array(languageSchema).min(1).max(5).default(['en']),
   clientName: z.string().min(1).max(64).optional(),
 })
 export const presenceRowSchema = z.object({
   agentId: z.string(), name: z.string(), status: presenceStatusSchema, languages: z.array(languageSchema),
   sinceSeconds: z.number().int(), online: z.boolean(),
+  /** Admins can set a status too, but are never routed calls and are not counted as agents. */
+  admin: z.boolean().default(false),
 })
 export type PresenceRow = z.infer<typeof presenceRowSchema>
 

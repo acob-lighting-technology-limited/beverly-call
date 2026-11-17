@@ -57,7 +57,8 @@ export const monitorRoutes = ({ env, pool, fetchImpl, storage }: AppDeps): Fasti
        from call_centre.recordings r join call_centre.calls c on c.id = r.call_id
        where r.deleted_at is null order by c.started_at desc limit 200`)
     await auditAs(pool, req, 'recording.list', 'recording', 'list')
-    return r.rows.map((x) => ({ id: x.id, date: x.started_at.toISOString(), caller: x.caller_number, agentId: x.agent_crm_id ?? 'Unassigned', seconds: x.duration_seconds, expiresAt: x.expires_at.toISOString(), legalHold: x.legal_hold }))
+    const names = await staffNames(env, req.session!.beverlyToken, fetchImpl, pool)
+    return r.rows.map((x) => ({ id: x.id, date: x.started_at.toISOString(), caller: x.caller_number, agentId: x.agent_crm_id ?? 'Unassigned', agentName: x.agent_crm_id ? names.get(x.agent_crm_id) ?? null : null, seconds: x.duration_seconds, expiresAt: x.expires_at.toISOString(), legalHold: x.legal_hold }))
   })
 
   /** Hold a recording for legal review (exempt from purge) or release the hold. */

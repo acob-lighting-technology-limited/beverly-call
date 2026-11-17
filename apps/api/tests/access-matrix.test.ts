@@ -15,7 +15,7 @@ const MATRIX: Record<string, R[] | null> = {
   'POST /api/webhooks/at/voice': null, 'POST /api/webhooks/at/sms': null,
   'GET /api/cron/:job': null,
   'GET /api/session': STAFF,
-  'PUT /api/presence': AGENT, 'DELETE /api/presence': AGENT, 'GET /api/presence/available': AGENT, 'GET /api/presence': LEAD,
+  'PUT /api/presence': STAFF, 'DELETE /api/presence': STAFF, 'GET /api/presence/me': STAFF, 'GET /api/presence/available': AGENT, 'GET /api/presence': LEAD,
   'GET /api/calls/active': AGENT, 'POST /api/calls/:id/wrap-up': AGENT, 'POST /api/calls/:id/transfer': AGENT,
   'GET /api/calls/:id/notes': AGENT, 'POST /api/calls/:id/notes': AGENT, 'GET /api/calls/:id/summary': AGENT, 'GET /api/softphone/token': AGENT,
   'GET /api/callbacks': STAFF, 'GET /api/callbacks/calendar': AGENT, 'POST /api/callbacks': AGENT,
