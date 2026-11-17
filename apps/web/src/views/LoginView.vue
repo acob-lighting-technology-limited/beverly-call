@@ -176,11 +176,13 @@ onMounted(() => {
   .auth-name { font-size: 22px; font-weight: var(--fw-regular); letter-spacing: -0.01em; }
   .auth-story h2 { margin: 0 0 var(--sp-3); max-width: 15em; font-size: clamp(30px, 3.4vw, 46px); line-height: 1.08; font-weight: var(--fw-light); letter-spacing: -0.02em; }
   .auth-story > p { margin: 0 0 var(--sp-5); max-width: 32em; color: rgba(255, 255, 255, 0.72); font-size: var(--fs-lg); line-height: 1.5; }
-  .auth-features { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3); max-width: 30em; }
-  .auth-features li { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3); border-radius: var(--r-lg); background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.12); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+  .auth-features { list-style: none; margin: 0; padding: 0; display: grid; max-width: 30em; }
+  .auth-features li { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) 0; border-top: 1px solid rgba(255, 255, 255, 0.12); }
+  .auth-features li:last-child { border-bottom: 1px solid rgba(255, 255, 255, 0.12); }
   .auth-features b { display: block; font-weight: var(--fw-regular); }
   .auth-features small { display: block; color: rgba(255, 255, 255, 0.66); font-size: var(--fs-sm); }
-  .auth-fi { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: var(--accent); color: var(--on-accent-text); }
+  .auth-fi { flex: none; display: grid; place-items: center; width: 32px; height: 32px; color: var(--accent); }
+  .auth-fi :deep(.i) { width: 22px; height: 22px; }
   .auth-brand-foot { margin: 0; color: rgba(255, 255, 255, 0.55); font-size: var(--fs-sm); }
 }
 /* ---- dark theme: its own surfaces, so the two halves read as two panels and the form keeps real contrast ---- */

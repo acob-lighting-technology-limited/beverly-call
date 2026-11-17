@@ -2,6 +2,9 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { LANGUAGE_NAMES, type CoachingEntry, type LanguageCode, type PresenceRow, type WallSnapshot } from '@beverly-call/shared'
 import Icon from '@/components/Icon.vue'
+import Donut from '@/components/charts/Donut.vue'
+import BarChart from '@/components/charts/BarChart.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import KpiTile from '@/components/KpiTile.vue'
 import StateBanner from '@/components/StateBanner.vue'
 import FilterPopover, { type FilterGroup } from '@/components/FilterPopover.vue'
@@ -35,7 +38,8 @@ const selected = ref<string | null>(null)
 
 interface Row { id: string; name: string; langs: LanguageCode[]; state: 'Busy' | 'Wrap' | 'Free' | 'Break' | 'Away' | 'Offline'; tone: string; since: number; onCall: boolean }
 const STATE: Record<string, { label: Row['state']; tone: string }> = { busy: { label: 'Busy', tone: 'bad' }, acw: { label: 'Wrap', tone: 'ye' }, available: { label: 'Free', tone: 'ok' }, break: { label: 'Break', tone: 'vi' }, away: { label: 'Away', tone: 'vi' } }
-const rows = computed<Row[]>(() => (roster.data.value ?? []).map((a) => {
+// admins can set a status but are not agents: they are not on the wall, cannot be coached or listened to
+const rows = computed<Row[]>(() => (roster.data.value ?? []).filter((a) => !a.admin).map((a) => {
   const s = a.online ? STATE[a.status] ?? { label: 'Away' as const, tone: 'vi' } : { label: 'Offline' as const, tone: 'vi' }
   return { id: a.agentId, name: a.name, langs: a.languages, state: s.label, tone: s.tone, since: a.sinceSeconds, onCall: a.status === 'busy' && a.online }
 }))
@@ -77,21 +81,9 @@ const langCounts = computed(() => {
   for (const r of rows.value) for (const l of r.langs) m.set(l, (m.get(l) ?? 0) + 1)
   return [...m.entries()].sort((a, b) => b[1] - a[1])
 })
-const PALETTE = ['var(--yel)', '#fff', '#B9B4A0', '#E5483B', '#8F7AD6']
-const donut = computed(() => {
-  const total = langCounts.value.reduce((n, [, c]) => n + c, 0) || 1
-  let at = 0
-  return `conic-gradient(${langCounts.value.map(([, c], i) => { const from = at; at += (c / total) * 100; return `${PALETTE[i % PALETTE.length]} ${from}% ${at}%` }).join(', ') || 'var(--panel) 0 100%'})`
-})
-const hourly = computed(() => wall.data.value?.hourly ?? [])
-const peak = computed(() => Math.max(1, ...hourly.value))
-const line = computed(() => hourly.value.map((v, i) => `${((i * 600) / 23).toFixed(1)},${(130 - (v / peak.value) * 110).toFixed(1)}`).join(' '))
-const hover = ref<{ x: number; text: string } | null>(null)
-function onMove(e: PointerEvent): void {
-  const svg = e.currentTarget as SVGElement, r = svg.getBoundingClientRect()
-  const h = Math.min(23, Math.max(0, Math.round(((e.clientX - r.left) / r.width) * 23)))
-  hover.value = { x: (h * 600) / 23, text: `${pad2(h)}:00, ${hourly.value[h] ?? 0} calls` }
-}
+const PALETTE = ['var(--accent)', 'var(--t1)', 'var(--t2)', 'var(--st-break)', 'var(--st-away)']
+const langSegments = computed(() => langCounts.value.map(([l, c], i) => ({ label: LANGUAGE_NAMES[l], value: c, color: PALETTE[i % PALETTE.length]! })))
+const hourly = computed(() => (wall.data.value?.hourly ?? []).map((n, h) => ({ label: pad2(h), value: n })))
 const free = computed(() => rows.value.filter((r) => r.state === 'Free').length)
 const show = (p: string) => (settings.p.mask ? maskPhone(p) : p)
 </script>
@@ -152,27 +144,23 @@ const show = (p: string) => (settings.p.mask ? maskPhone(p) : p)
           <button :class="{ y: mode === 'barge' }" aria-label="Barge in" title="Barge in" @click="monitor('barge')"><Icon name="phone" /></button></div>
       </div>
 
-      <div class="c dk s4 w2 stick">
+      <div class="c s4 w2 stick">
         <div class="hd"><Icon name="alert" /><b>Alerts</b></div>
-        <div v-for="a in wall.data.value.alerts" :key="a" class="row"><span>{{ a }}</span></div>
+        <div v-for="a in wall.data.value.alerts" :key="a" class="row wl-alert"><Icon name="alert" /><span>{{ a }}</span></div>
         <div v-if="!wall.data.value.alerts.length" class="row"><span>Nothing needs attention</span><span class="pill ok">Clear</span></div>
-        <div class="hd" style="margin-top: 12px"><Icon name="globe" /><b>Languages</b></div>
-        <div class="donut" :style="{ background: donut }" role="img" :aria-label="`Agents by language: ${langCounts.map(([l, c]) => `${LANGUAGE_NAMES[l]} ${c}`).join(', ') || 'none'}`"><div style="color: #1f1f22">{{ langCounts.length }}</div></div>
-        <div v-for="([l, c], i) in langCounts" :key="l" class="row"><span><i :style="{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', marginRight: '6px', background: PALETTE[i % PALETTE.length] }"></i>{{ LANGUAGE_NAMES[l] }}</span><span>{{ c }}</span></div>
+        <div class="hd" style="margin-top: var(--sp-4)"><Icon name="globe" /><b>Agent languages</b></div>
+        <Donut v-if="langSegments.length" :segments="langSegments" :center="String(langSegments.length)" sub="languages" />
+        <EmptyState v-else compact icon="globe" title="No agents signed in" hint="Languages appear when agents go available." />
       </div>
 
       <div class="c s8 w2">
         <div class="hd"><Icon name="chart" /><b>Calls per hour, today</b></div>
-        <svg viewBox="0 0 600 150" width="100%" role="img" aria-label="Calls per hour today" @pointermove="onMove" @pointerleave="hover = null">
-          <polygon :points="`0,150 ${line} 600,150`" style="fill: color-mix(in srgb, var(--yel) 35%, transparent)" />
-          <polyline :points="line" fill="none" stroke="var(--yel)" stroke-width="3" stroke-linejoin="round" />
-          <template v-if="hover"><line :x1="hover.x" :x2="hover.x" y1="0" y2="150" stroke="currentColor" stroke-dasharray="3 4" opacity=".6" /><text :x="Math.min(hover.x + 6, 470)" y="14" font-size="12" fill="currentColor">{{ hover.text }}</text></template>
-        </svg>
+        <BarChart :items="hourly" :height="150" trend label="Calls per hour today" />
       </div>
       <div class="c s4 w2">
         <div class="hd"><Icon name="note" /><b>Coaching log</b></div>
         <div v-for="(c, i) in coaching.data.value ?? []" :key="i" class="row"><span>{{ c.text }}</span><small>{{ shortDate(c.at) }}</small></div>
-        <p v-if="coaching.data.value && !coaching.data.value.length" style="color: var(--mut); margin: 4px 0">Nothing yet. Send a prompt or listen in.</p>
+        <EmptyState v-if="coaching.data.value && !coaching.data.value.length" compact icon="note" title="No coaching yet" hint="Send a prompt or listen in on a call." />
       </div>
       <div v-if="wall.data.value.calls.length" class="c s12 w2">
         <div class="hd"><Icon name="phone" /><b>Calls in progress</b><span style="margin-left: auto"><ViewToggle :model-value="callsMode" @update:model-value="setCallsMode" /></span></div>
@@ -188,4 +176,6 @@ const show = (p: string) => (settings.p.mask ? maskPhone(p) : p)
 .agc.sel { outline: 2px solid var(--yel); }
 .agc .ft button { width: 34px; height: 34px; min-width: 0; padding: 0; }
 .agc .ft button:disabled { opacity: 0.35; cursor: default; }
+.wl-alert { align-items: center; gap: var(--sp-2); justify-content: flex-start; }
+.wl-alert .i { flex: none; width: 16px; height: 16px; color: var(--warn-fg); }
 </style>

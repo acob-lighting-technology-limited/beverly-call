@@ -7,3 +7,7 @@ dist
 *.log
 test-results
 playwright-report
+
+# local tooling (never commit: Supabase CLI link info, editor/launch config)
+supabase/.temp/
+.claude/

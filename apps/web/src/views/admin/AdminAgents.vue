@@ -44,7 +44,7 @@ const RANGES: { id: ReportRange; label: string }[] = [{ id: '1', label: 'Today' 
       <div class="scroll" :class="mode === 'cards' ? 'dv-cards' : 'dv-table'"><table class="rt"><thead><tr><th>Agent</th><th>Status</th><th>Languages</th><th>Time in status</th></tr></thead>
         <tbody>
           <tr v-for="p in rows" :key="p.agentId" tabindex="0" style="cursor: pointer" @click="opened = p" @keydown.enter="opened = p">
-            <td data-label="Agent"><b style="font-weight: 400">{{ p.name }}</b><small style="display: block; color: var(--mut)">View profile and analytics</small></td>
+            <td data-label="Agent"><b style="font-weight: 400">{{ p.name }}</b><span v-if="p.admin" class="pill vi" style="margin-left: 6px">Admin</span><small style="display: block; color: var(--mut)">View profile and analytics</small></td>
             <td data-label="Status"><span class="pill" :class="p.online ? STATUS_TONE[p.status] : 'vi'">{{ p.online ? STATUS_LABEL[p.status] : 'Offline' }}</span></td>
             <td data-label="Languages">{{ p.languages.map((l) => LANGUAGE_NAMES[l] ?? l).join(', ') || '—' }}</td>
             <td data-label="Time in status">{{ p.online ? clock(p.sinceSeconds) : '—' }}</td>

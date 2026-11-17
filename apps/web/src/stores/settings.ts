@@ -19,12 +19,13 @@ export interface Prefs {
   lang: InterfaceLocale        // interface language only. Pidgin is a spoken (call) language, not an interface one.
   sounds: boolean
   sessionTimeoutMin: number   // 0 = off
+  autoAwayMin: number         // minutes idle before an Available person is set to Away; 0 = off
   mute: { esc: boolean; cb: boolean; sys: boolean }
 }
 
 const DEFAULTS: Prefs = {
   theme: 'auto', pal: '', surface: 'frost', dense: false, mask: true, textSize: 100, highContrast: false, reduceMotion: false,
-  lang: 'en', sounds: true, sessionTimeoutMin: 480, mute: { esc: false, cb: false, sys: false },
+  lang: 'en', sounds: true, sessionTimeoutMin: 480, autoAwayMin: 10, mute: { esc: false, cb: false, sys: false },
 }
 
 function load(): Prefs {

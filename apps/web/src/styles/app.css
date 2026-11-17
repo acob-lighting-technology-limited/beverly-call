@@ -81,9 +81,9 @@ select,textarea,input{width:100%;font:300 14px var(--font);padding:9px 12px;bord
 .tbar{display:flex;align-items:center;gap:6px;padding:6px 10px;flex:none;position:relative;z-index:12}
 .br{flex:1;display:flex;align-items:center;gap:8px;font-size:17px}.br i{width:10px;height:10px;border-radius:50%;background:var(--yel)}
 .ib{width:38px;padding:0;background:var(--panel);position:relative}.bd{position:absolute;top:7px;right:8px;width:8px;height:8px;border-radius:50%;background:var(--danger)}
-.avb{display:flex;align-items:center;gap:8px;background:var(--panel);border-radius:var(--r-pill);padding:3px 10px 3px 3px;height:42px;color:var(--ink)}
+.avb{display:flex;align-items:center;gap:8px;background:var(--panel);border-radius:var(--r-pill);padding:3px;height:42px;color:var(--ink)}
 .avb img,.mh img{width:36px;height:36px;border-radius:50%;box-shadow:0 0 0 2px var(--st-on)}.avb[data-st=break] img{box-shadow:0 0 0 2px var(--st-break)}.avb[data-st=away] img{box-shadow:0 0 0 2px var(--st-away)}
-.avb span{display:none;line-height:1.1;text-align:left}.pph{width:84px;height:84px;border-radius:50%;margin-bottom:6px;box-shadow:0 0 0 3px var(--yel)}
+.avl{display:none;line-height:1.1;text-align:left}.pph{width:84px;height:84px;border-radius:50%;margin-bottom:6px;box-shadow:0 0 0 3px var(--yel)}
 .menu{position:absolute;right:10px;top:54px;width:272px;background:var(--card);color:var(--ink);border-radius:var(--r-lg);box-shadow:0 14px 40px rgba(0,0,0,.28);padding:8px;display:none;z-index:40}.menu.on{display:block}
 .mh{display:flex;gap:10px;align-items:center;padding:6px}.mh img{width:46px;height:46px}
 .ss{display:flex;gap:4px;margin:6px 0}.ss button{flex:1;height:30px;background:var(--panel);font-size:11px;padding:0 6px}.ss button.on{background:var(--dark);color:#fff}
@@ -169,7 +169,7 @@ nav a .i{width:19px;height:19px}
 body{padding:0}
 .app{padding:0}
 .views{flex:1}
-.avb span{display:block}
+.avb{padding:3px 12px 3px 3px}.avl{display:block}
 
 
 
@@ -281,8 +281,6 @@ tbody tr[tabindex]:focus-visible{outline:2px solid var(--yel);outline-offset:-2p
 html[data-ast=break] .sd{background:var(--st-break)}html[data-ast=away] .sd{background:var(--danger)}
 .avw.big{display:block;width:84px;margin:0 auto 6px}.avw.big .pph{margin:0}.avw.big .sd{width:18px;height:18px;right:4px;bottom:4px;border-width:3px}
 html[data-ast=on] :is(.avb,.mh) img{box-shadow:0 0 0 2px var(--st-on)}html[data-ast=break] :is(.avb,.mh) img{box-shadow:0 0 0 2px var(--st-break)}html[data-ast=away] :is(.avb,.mh) img{box-shadow:0 0 0 2px var(--danger)}
-#ss button::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--st-on)}
-#ss button[data-s=break]::before{background:var(--st-break)}#ss button[data-s=away]::before{background:var(--danger)}
 .fbtn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:var(--r-pill);background:var(--panel);color:inherit;border:1px solid var(--line);position:relative}
 .fbtn .i{width:16px;height:16px}.fbtn.on{background:var(--dark);color:#fff;border-color:transparent}
 .fb{min-width:18px;height:18px;border-radius:var(--r-pill);background:var(--yel);color:var(--on-accent);font:500 11px/18px var(--font);text-align:center;padding:0 5px}
@@ -300,13 +298,10 @@ html[data-ast=on] :is(.avb,.mh) img{box-shadow:0 0 0 2px var(--st-on)}html[data-
 
 /* ===== v9 token architecture: primitive ramp > palette > surface > mode ===== */
 
-/* ---- avatar: wrapper must survive the mobile rule that hides label spans ---- */
-.avb>.avw,.mh>.avw{display:inline-grid!important}
 .avw img{display:block}
 /* ---- availability tokens ---- */
 html[data-ast=on] .sd{background:var(--st-on)}html[data-ast=break] .sd{background:var(--st-break)}html[data-ast=away] .sd{background:var(--st-away)}
 html[data-ast=on] :is(.avb,.mh) img{box-shadow:0 0 0 2px var(--st-on)}html[data-ast=break] :is(.avb,.mh) img{box-shadow:0 0 0 2px var(--st-break)}html[data-ast=away] :is(.avb,.mh) img{box-shadow:0 0 0 2px var(--st-away)}
-#ss button::before{background:var(--st-on)}#ss button[data-s=break]::before{background:var(--st-break)}#ss button[data-s=away]::before{background:var(--st-away)}
 /* ---- call area follows the theme ---- */
 #call{background:radial-gradient(120% 70% at 50% 0%,color-mix(in srgb,var(--yel) 38%,var(--g1)) 0%,var(--g1) 55%,var(--g2) 100%);color:var(--ink)}
 :root[data-theme=dark] #call{background:radial-gradient(120% 70% at 50% 0%,color-mix(in srgb,var(--yel) 22%,#1b1b1e) 0%,#222226 55%,#141416 100%)}
@@ -426,8 +421,6 @@ input[type=range]{accent-color:var(--yel);padding:0;height:24px}
 /* v10 fixes */
 .app.incall .br span{display:inline!important}
 .br span{font-size:17px;white-space:nowrap}
-.avb .avi{display:grid!important}
-.avb .avw{display:inline-grid!important}
 #call .cf{padding-top:64px}
 #call .mid{gap:2px;overflow:visible}
 #call .nm{margin-top:18px}
@@ -500,7 +493,6 @@ input[type=range]{accent-color:var(--yel);padding:0;height:24px}
   nav[data-admin] .rail-item{flex:1 0 54px}
 }
 nav[data-admin]{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 55%,transparent),var(--sh-3)}
-.rail-back{opacity:.85}
 .rail-morph-enter-active,.rail-morph-leave-active{transition:opacity .16s ease}
 .rail-morph-enter-from,.rail-morph-leave-to{opacity:0}
 :root nav .rail-morph-enter-active .rail-item.rail-item{transition:transform .42s cubic-bezier(.34,1.56,.64,1),opacity .26s ease;transition-delay:calc(var(--i,0)*45ms)}

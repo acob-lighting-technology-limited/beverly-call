@@ -6,7 +6,7 @@ import { computed, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icon from '@/components/Icon.vue'
 import PageHeader from '@/components/PageHeader.vue'
-import { adminSection } from '@/lib/admin-sections'
+import { ADMIN_SECTIONS, adminGroupOf, adminSection } from '@/lib/admin-sections'
 import { morphWithin, navMemory } from '@/lib/morph'
 import { DEFAULT_SCREEN } from '@/lib/roles'
 import { useSession } from '@/stores/session'
@@ -27,6 +27,8 @@ const router = useRouter()
 const session = useSession()
 const current = computed(() => adminSection(route.params.section))
 const view = computed(() => VIEWS[current.value.id as keyof typeof VIEWS])
+/** Sections in the same rail group, shown as tabs when there is more than one. */
+const tabs = computed(() => adminGroupOf(current.value.id).sections.map((id) => ADMIN_SECTIONS.find((s) => s.id === id)!).filter(Boolean))
 const goBack = (): void => { void router.push(navMemory.lastNormal || `/${DEFAULT_SCREEN[session.role ?? 'agent']}`) }
 
 // Grow out of the rail button the user just pressed (none for keyboard or a direct link).
@@ -39,6 +41,9 @@ const morphStyle = origin ? { '--mx': `${origin.x}px`, '--my': `${origin.y}px` }
     <PageHeader :title="current.label">
       <template #leading><button class="ib" aria-label="Back to normal view" title="Back to normal view" @click="goBack"><Icon name="lft" /></button></template>
     </PageHeader>
+    <div v-if="tabs.length > 1" class="adm-tabs" role="navigation" aria-label="Section">
+      <RouterLink v-for="t in tabs" :key="t.id" :to="`/admin/${t.id}`" class="adm-tab" :class="{ on: t.id === current.id }" :aria-current="t.id === current.id ? 'page' : undefined">{{ t.label }}</RouterLink>
+    </div>
     <Transition name="adm-sec" mode="out-in">
       <component :is="view" :key="current.id" class="adm-body" />
     </Transition>
@@ -47,6 +52,12 @@ const morphStyle = origin ? { '--mx': `${origin.x}px`, '--my': `${origin.y}px` }
 
 <style scoped>
 .adm-body { min-width: 0; }
+.adm-tabs { display: flex; gap: var(--sp-1); margin: 0 0 var(--sp-3); padding: 3px; width: fit-content; max-width: 100%; overflow-x: auto; border-radius: var(--r-pill); background: color-mix(in srgb, var(--text) 7%, transparent); scrollbar-width: none; }
+.adm-tabs::-webkit-scrollbar { display: none; }
+.adm-tab { flex: none; display: inline-flex; align-items: center; height: 34px; padding: 0 var(--sp-4); border-radius: var(--r-pill); color: var(--text-muted); text-decoration: none; white-space: nowrap; transition: background var(--dur-fast), color var(--dur-fast); }
+.adm-tab:hover { color: var(--text); }
+.adm-tab.on { background: var(--surface-inverse); color: var(--text-inverse); }
+.adm-tab:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 /* the console grows out of the rail button that opened it */
 .view.adm-morph { animation: adm-morph 0.6s cubic-bezier(0.32, 0.72, 0, 1) both; }
 @keyframes adm-morph {

@@ -12,11 +12,13 @@ import { useBrandMark } from '@/lib/use-brand-mark'
 import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
 import { useInbox } from '@/stores/inbox'
+import StatusPicker from '@/components/StatusPicker.vue'
+import PresenceBar from '@/components/PresenceBar.vue'
 import { usePresence } from '@/stores/presence'
 import { useToast } from '@/stores/toast'
 import { useUi } from '@/stores/ui'
 import { DEFAULT_SCREEN, GROUPS } from '@/lib/roles'
-import { clock } from '@/lib/format'
+import { clock, hms } from '@/lib/format'
 import { api } from '@/lib/api'
 import type { Role, ScreenId } from '@/types'
 import type { PresenceStatus } from '@beverly-call/shared'
@@ -36,12 +38,14 @@ const inCall = computed(() => current.value === 'call')
 const themeIcon = computed(() => ({ light: 'sun', dark: 'moon', auto: 'auto' })[settings.p.theme])
 const mark = useBrandMark()
 const initials = computed(() => (session.user?.name ?? '').split(/\s+/).map((w) => w[0] ?? '').join('').slice(0, 2).toUpperCase())
-const STATUS: { id: PresenceStatus; label: string }[] = [{ id: 'available', label: 'Available' }, { id: 'break', label: 'Break' }, { id: 'away', label: 'Away' }]
+const STATUS_LABEL: Record<PresenceStatus, string> = { available: 'Available', busy: 'On a call', acw: 'Wrap-up', break: 'Break', away: 'Away' }
+/** Under my name: my status, with a running timer while I am not available. */
+const statusLine = computed(() => `${STATUS_LABEL[presence.status]}${presence.unavailable && !presence.locked ? ` ${hms(presence.elapsedSeconds)}` : ''}`)
 const takesCalls = computed(() => session.role === 'agent' || session.role === 'supervisor')
 
 /* ---- Real session lifecycle: presence heartbeat and inbox polling only while signed in ---- */
 watch(() => session.user?.id, (id) => {
-  if (id) { inbox.start(session.user?.role); if (takesCalls.value) presence.start() } else { inbox.stop(); presence.stop() }
+  if (id) { inbox.start(session.user?.role); void presence.start() } else { inbox.stop(); presence.stop() }
 }, { immediate: true })
 
 /* ---- Call pill: shown on every screen except the call screen while a call is live ---- */
@@ -108,7 +112,6 @@ function viewAs(r: Role): void {
   void router.push(`/${DEFAULT_SCREEN[session.role ?? 'agent']}`)
   toast.show(r === session.user?.role ? 'Back to your own view' : `Viewing as ${r}`)
 }
-async function setStatus(s: PresenceStatus): Promise<void> { await presence.set(s) }
 async function signOut(): Promise<void> {
   ui.close()
   try { await api('/presence', { method: 'DELETE' }) } catch { /* not a call taker */ }
@@ -135,17 +138,16 @@ const toggleMenu = () => ui.toggle('menu')
         <Icon name="bell" /><i v-if="inbox.unread" class="bd">{{ inbox.unread }}</i></button>
       <button class="avb" :data-st="presence.status" aria-haspopup="true" :aria-expanded="ui.panel === 'menu'" aria-label="Account menu" @click.stop="toggleMenu">
         <span class="avw"><span class="avi" :style="session.photo ? { backgroundImage: `url(${session.photo})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}">{{ initials }}</span><i class="sd" aria-hidden="true"></i></span>
-        <span><b style="font-weight: 400">{{ session.user?.name }}</b><small style="display: block; color: var(--mut); font-size: 10px">{{ takesCalls ? STATUS.find((x) => x.id === presence.status)?.label : session.user?.role }}</small></span>
+        <span class="avl"><b style="font-weight: 400">{{ session.user?.name }}</b><small style="display: block; color: var(--mut); font-size: 10px">{{ statusLine }}</small></span>
       </button>
 
       <NotificationsPanel />
       <div v-if="ui.panel === 'menu'" class="menu on" @click.stop>
-        <div class="mh"><div><b style="font-weight: 400">{{ session.user?.name }}</b>
+        <div class="mh"><span class="avw" :data-st="presence.status"><span class="avi" :style="session.photo ? { backgroundImage: `url(${session.photo})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}">{{ initials }}</span><i class="sd" aria-hidden="true"></i></span><div><b style="font-weight: 400">{{ session.user?.name }}</b>
           <div style="color: var(--mut); font-size: 11px">{{ session.user?.role }}{{ session.viewAs ? `, viewing as ${session.viewAs}` : '' }}</div></div></div>
-        <div v-if="session.user?.role === 'admin'" class="vw"><small>Switch view, using your own login</small>
+        <div v-if="session.user?.role === 'admin'" class="vw">
           <div class="ss"><button v-for="r in (['agent', 'supervisor', 'admin'] as Role[])" :key="r" :class="{ on: session.role === r }" @click="viewAs(r)">{{ r }}</button></div></div>
-        <div v-if="takesCalls" class="ss" id="ss">
-          <button v-for="s in STATUS" :key="s.id" :data-s="s.id" :class="{ on: presence.status === s.id }" @click="setStatus(s.id)">{{ s.label }}</button></div>
+        <StatusPicker />
         <button class="mi" @click="ui.open('profile')"><Icon name="user" />Profile</button>
         <button class="mi" @click="ui.open('settings')"><Icon name="sliders" />Settings</button>
         <button class="mi" @click="ui.open('handover')"><Icon name="note" />Shift handover</button>
@@ -163,6 +165,7 @@ const toggleMenu = () => ui.toggle('menu')
     <button v-if="live && !inCall" id="pin" class="on" @click="router.push('/call')"><Icon name="phone" /><span>On call {{ clock(pillSecs) }}, {{ live.name }}</span></button>
   </div>
 
+  <PresenceBar v-if="showShell && !inCall && ui.panel !== 'menu' && ui.panel !== 'notifications'" />
   <SearchPanel /><SettingsPanel /><InboxPanels />
   <div class="tt" :class="{ on: !!toast.message }" role="status">{{ toast.message }}</div>
 

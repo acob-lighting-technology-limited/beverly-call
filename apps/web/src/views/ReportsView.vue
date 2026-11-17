@@ -4,7 +4,9 @@ import { LANGUAGE_NAMES, type QaSample, type Report, type ReportExtras, type Rep
 import Icon from '@/components/Icon.vue'
 import KpiTile from '@/components/KpiTile.vue'
 import Modal from '@/components/Modal.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import StateBanner from '@/components/StateBanner.vue'
+import Donut from '@/components/charts/Donut.vue'
 import BarChart from '@/components/charts/BarChart.vue'
 import BarList from '@/components/charts/BarList.vue'
 import Heatmap from '@/components/charts/Heatmap.vue'
@@ -77,16 +79,19 @@ async function saveScore(): Promise<void> {
           <BarChart :items="extras.data.value.forecast.map((f) => ({ label: f.day, value: f.calls }))" :height="130" :average="false" label="Forecast calls per day" />
           <small style="color: var(--mut)">Average of the same weekday over the last four weeks.</small></div>
         <div class="c s6 w2"><div class="hd"><Icon name="users" /><b>Leaderboard</b></div>
-          <template v-for="l in extras.data.value.leaderboard" :key="l.agentId"><div style="display: flex; justify-content: space-between"><span>{{ l.name }}</span><small style="color: var(--mut)">{{ l.calls }} calls{{ l.avgRating ? ` · ${l.avgRating} / 5` : '' }}</small></div><div class="tr2"><i :style="{ width: `${(l.calls / Math.max(1, extras.data.value.leaderboard[0]?.calls ?? 1)) * 100}%` }"></i></div></template>
-          <div v-if="!extras.data.value.leaderboard.length" style="color: var(--mut)">No calls in this period.</div>
-          <div class="row"><span>Service level</span><span>{{ extras.data.value.serviceLevelPct }}%</span></div><div class="row"><span>Abandoned</span><span>{{ extras.data.value.abandonedPct }}%</span></div>
-          <div v-for="l in extras.data.value.languages" :key="l.language" class="row"><span>{{ LANGUAGE_NAMES[l.language] }}</span><span>{{ l.count }}</span></div></div>
+          <BarList v-if="extras.data.value.leaderboard.length" :rows="extras.data.value.leaderboard.map((l) => ({ label: l.name, value: l.calls, sub: l.avgRating ? `Rated ${l.avgRating} of 5` : 'No ratings yet' }))" />
+          <EmptyState v-else compact icon="users" title="No calls handled" hint="Agents appear here once they take calls in this period." />
+          <div class="row" style="margin-top: var(--sp-3)"><span>Service level</span><b style="font-weight: 400">{{ extras.data.value.serviceLevelPct }}%</b></div>
+          <div class="row"><span>Abandoned</span><b style="font-weight: 400">{{ extras.data.value.abandonedPct }}%</b></div></div>
+        <div class="c s6 w2"><div class="hd"><Icon name="globe" /><b>Languages</b></div>
+          <Donut v-if="extras.data.value.languages.length" :segments="extras.data.value.languages.map((l, i) => ({ label: LANGUAGE_NAMES[l.language], value: l.count, color: ['var(--accent)', 'var(--t1)', 'var(--t2)', 'var(--st-break)', 'var(--st-away)'][i % 5]! }))" :center="String(extras.data.value.languages.reduce((n, l) => n + l.count, 0))" sub="calls" />
+          <EmptyState v-else compact icon="globe" title="No calls" hint="The language mix appears when calls come in." /></div>
       </template>
       <div class="c s6 w2"><div class="hd"><Icon name="check" /><b>QA sample</b></div>
         <StateBanner :loading="qa.loading.value" :error="qa.error.value" what="the QA sample" />
         <div v-for="s in qa.data.value ?? []" :key="s.callId" class="row"><span>{{ shortDate(s.at) }} {{ s.agentId.slice(0, 8) }}</span>
           <button :class="s.score === null ? 'y' : ''" style="height: 30px" :aria-label="s.score === null ? 'Score this call' : `Change score ${s.score}`" @click="startScore(s)">{{ s.score === null ? 'Score' : s.score }}</button></div>
-        <p v-if="qa.data.value && !qa.data.value.length" style="color: var(--mut)">No finished calls to review yet.</p></div>
+        <EmptyState v-if="qa.data.value && !qa.data.value.length" compact icon="mic" title="Nothing to review yet" hint="Finished calls are sampled here for scoring." /></div>
     </div>
 
     <Modal :open="!!scoring" title="Score this call" @close="scoring = null">

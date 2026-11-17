@@ -36,7 +36,7 @@ onBeforeUnmount(() => clearInterval(timer))
 const w = computed(() => wall.data.value)
 const byStatus = computed(() => {
   const m = { available: 0, busy: 0, acw: 0, break: 0, away: 0 }
-  for (const p of presence.data.value ?? []) if (p.online) m[p.status] += 1
+  for (const p of presence.data.value ?? []) if (p.online && !p.admin) m[p.status] += 1
   return m
 })
 const stages = computed(() => [
@@ -64,7 +64,7 @@ const detail = computed<Detail | null>(() => {
     case 'live': return { title: 'On a call', empty: 'No live calls.', to: '/wall', action: 'Open live wall',
       rows: (w.value?.calls ?? []).map((c) => ({ key: c.id, title: c.agentName, sub: c.caller, tag: clock(c.seconds), tone: 'vi' })) }
     case 'wrap': return { title: 'Wrapping up', empty: 'Nobody is in wrap-up.', to: '/wall', action: 'Open live wall',
-      rows: (presence.data.value ?? []).filter((p) => p.online && p.status === 'acw').map((p) => ({ key: p.agentId, title: p.name, sub: 'In wrap-up', tag: clock(p.sinceSeconds), tone: 'vi' })) }
+      rows: (presence.data.value ?? []).filter((p) => p.online && !p.admin && p.status === 'acw').map((p) => ({ key: p.agentId, title: p.name, sub: 'In wrap-up', tag: clock(p.sinceSeconds), tone: 'vi' })) }
     case 'cases': return { title: 'Open cases', empty: 'No open cases.', to: '/cases', action: 'Open escalations',
       rows: (cases.data.value ?? []).filter((c) => c.state !== 'Done').map(caseRow) }
     case 'late': return { title: 'Past SLA', empty: 'Nothing is past its deadline.', to: '/cases', action: 'Open escalations',
