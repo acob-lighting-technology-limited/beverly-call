@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test'
 
 async function signIn(page: Page, email: string): Promise<void> {
   await page.goto('/login')
-  await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill('dev')
+  await page.getByRole('textbox', { name: 'Email' }).fill(email)
+  await page.locator('input[type=password]').fill('dev')
   await page.getByRole('button', { name: 'Sign in' }).click()
 }
 

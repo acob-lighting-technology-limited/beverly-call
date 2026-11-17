@@ -53,7 +53,7 @@ export const adminRoutes = ({ env, pool, fetchImpl, provider }: AppDeps): Fastif
     const [last, pending] = await Promise.all([
       pool.query<{ ran_at: Date; deleted_count: number; held_count: number; failed_count: number }>(
         'select ran_at, deleted_count, held_count, failed_count from call_centre.retention_runs order by ran_at desc limit 1'),
-      pool.query<{ n: string }>('select count(*) n from call_centre.recordings where deleted_at is null and legal_hold = false and expires_at < now()'),
+      env.RECORDING_RETENTION_DAYS === null ? Promise.resolve({ rows: [{ n: '0' }] }) : pool.query<{ n: string }>('select count(*) n from call_centre.recordings where deleted_at is null and legal_hold = false and expires_at < now()'),
     ])
     const l = last.rows[0]
     return {

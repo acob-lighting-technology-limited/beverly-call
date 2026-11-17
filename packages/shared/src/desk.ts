@@ -111,10 +111,22 @@ export const DEFAULT_SAVED_REPLIES: string[] = [
 export const outageSchema = z.object({ area: z.string().min(1).max(80), message: z.string().min(1).max(200), until: z.string().max(40) })
 export const outagesSchema = z.array(outageSchema).max(20)
 export type Outage = z.infer<typeof outageSchema>
+/** Titles of alerts for a call that is ringing right now. The API sends them and the app rings for them, so they live in one place. */
+export const CALL_ALERT = { incoming: 'Incoming call', warmTransfer: 'Warm transfer: caller is waiting', transferred: 'Call transferred to you' } as const
+export const CALL_ALERT_TITLES: readonly string[] = Object.values(CALL_ALERT)
+
+/** What this device wants pushed while the app is closed. Mirrors the notification settings in the app. */
+export const pushPrefsSchema = z.object({
+  mute: z.object({ esc: z.boolean(), cb: z.boolean(), sys: z.boolean() }),
+  sounds: z.boolean(),
+})
+export type PushPrefs = z.infer<typeof pushPrefsSchema>
 export const pushSubscriptionSchema = z.object({
   endpoint: z.string().url().max(600),
   keys: z.object({ p256dh: z.string().min(1).max(200), auth: z.string().min(1).max(100) }),
+  prefs: pushPrefsSchema.optional(),
 })
+export const pushPrefsUpdateSchema = pushPrefsSchema.extend({ endpoint: z.string().url().max(600) })
 
 /* ---- Customer actions ---- */
 export const customerSmsSchema = z.object({ phone: z.string().min(5).max(32), text: z.string().trim().min(1).max(320), customerRef: z.string().max(64).optional() })
@@ -171,7 +183,7 @@ export const connectionSchema = z.object({ name: z.string(), ok: z.boolean(), de
 export type Connection = z.infer<typeof connectionSchema>
 export const staffUserSchema = z.object({ id: z.string(), name: z.string(), role: z.string(), roleLabel: z.string().nullable(), active: z.boolean(), lastLogin: z.string().nullable() })
 export type StaffUser = z.infer<typeof staffUserSchema>
-export const numberInfoSchema = z.object({ virtualNumber: z.string().nullable(), retentionDays: z.number().int() })
+export const numberInfoSchema = z.object({ virtualNumber: z.string().nullable(), retentionDays: z.number().int().nullable() })
 
 export const walletInfoSchema = z.object({ status: z.string(), currency: z.string(), balance: z.number(), holds: z.number(), available: z.number() })
 export type WalletInfo = z.infer<typeof walletInfoSchema>

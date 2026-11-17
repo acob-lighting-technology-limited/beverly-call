@@ -2,13 +2,22 @@ import type { Pool } from 'pg'
 import type { RecordingStorage } from '../storage/recording-storage.js'
 
 export interface PurgeResult { deleted: number; held: number; failed: number }
+export interface PurgeOptions {
+  batch?: number
+  /** Retention is "never": recordings are kept forever. The job deletes nothing, whatever expires_at says, and still logs the run. */
+  neverDelete?: boolean
+}
 
 /**
- * NDPA retention: removes recordings past expires_at unless legal_hold is set.
+ * Retention: removes recordings past expires_at unless legal_hold is set, or deletes nothing at all when retention is "never".
  * The file is deleted first; the row is only marked deleted when that succeeds, so a failure is retried next run.
  * Every run is logged to call_centre.retention_runs as the retention proof.
  */
-export async function purgeExpiredRecordings(pool: Pool, storage: RecordingStorage, batch = 200): Promise<PurgeResult> {
+export async function purgeExpiredRecordings(pool: Pool, storage: RecordingStorage, { batch = 200, neverDelete = false }: PurgeOptions = {}): Promise<PurgeResult> {
+  if (neverDelete) {
+    await pool.query('insert into call_centre.retention_runs (deleted_count, held_count, failed_count) values (0,0,0)')
+    return { deleted: 0, held: 0, failed: 0 }
+  }
   const due = await pool.query<{ id: string; storage_bucket: string; storage_key: string }>(
     `select id, storage_bucket, storage_key from call_centre.recordings
      where deleted_at is null and legal_hold = false and expires_at < now() order by expires_at limit $1`, [batch])

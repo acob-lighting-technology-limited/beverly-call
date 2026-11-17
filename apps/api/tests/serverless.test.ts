@@ -11,6 +11,8 @@ describe('serverlessEnv', () => {
   it('derives the origin from the platform host: production alias in production, deployment host elsewhere', () => {
     expect(serverlessEnv({ ...base, VERCEL_ENV: 'production', VERCEL_PROJECT_PRODUCTION_URL: 'call.example.com', VERCEL_URL: 'x-123.vercel.app' }).ALLOWED_ORIGIN).toBe('https://call.example.com')
     expect(serverlessEnv({ ...base, VERCEL_ENV: 'preview', VERCEL_URL: 'x-123.vercel.app' }).ALLOWED_ORIGIN).toBe('https://x-123.vercel.app')
+    expect(serverlessEnv({ ...base, VERCEL_ENV: 'preview', VERCEL_URL: 'x-123.vercel.app' }).VAPID_SUBJECT).toBe('https://x-123.vercel.app')
+    expect(serverlessEnv({ ...base, VERCEL_URL: 'x.vercel.app', VAPID_SUBJECT: 'mailto:ops@acob.test' }).VAPID_SUBJECT).toBe('mailto:ops@acob.test')
   })
   it('lets explicit settings win, forces production mode and uses the bundled CA only when none is set', () => {
     const e = serverlessEnv({ ...base, ALLOWED_ORIGIN: 'https://mine.test', API_PUBLIC_URL: 'https://api.mine.test', VERCEL_URL: 'x.vercel.app', NODE_ENV: 'development', DATABASE_SSL_CA: 'own-ca' }, 'bundled-ca')

@@ -1,9 +1,12 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
-import type { AppNotification } from '@beverly-call/shared'
+import { computed, ref, watch } from 'vue'
+import { CALL_ALERT_TITLES, type AppNotification } from '@beverly-call/shared'
 import { api } from '@/lib/api'
 import { useToast } from '@/stores/toast'
 import { useSettings } from '@/stores/settings'
+import { useSession } from '@/stores/session'
+import { playChime, playRing } from '@/lib/tones'
+import { syncPush } from '@/lib/pwa'
 
 const POLL_MS = 30_000
 
@@ -19,6 +22,7 @@ export const useInbox = defineStore('inbox', () => {
   let timer = 0
   let seen = new Set<string>()
   const settings = useSettings()
+  let active = false
 
   /** Categories the user muted in Settings are hidden here (and do not count). */
   const items = computed(() => all.value.filter((n) => !settings.p.mute[n.category]))
@@ -29,7 +33,14 @@ export const useInbox = defineStore('inbox', () => {
       const next = await api<AppNotification[]>('/notifications')
       const toast = useToast()
       // Surface a toast for brand-new unread items after the first load.
-      if (loaded.value) for (const n of next) if (n.unread && !seen.has(n.key) && !settings.p.mute[n.category]) toast.show(n.title)
+      if (loaded.value) {
+        for (const n of next) {
+          if (!n.unread || seen.has(n.key) || settings.p.mute[n.category]) continue
+          toast.show(n.title)
+          // A ringing call is never muted by category; everything else chimes once.
+          if (CALL_ALERT_TITLES.includes(n.title)) playRing(settings.p.sounds); else playChime(settings.p.sounds)
+        }
+      }
       seen = new Set(next.map((n) => n.key))
       all.value = next
       loaded.value = true
@@ -47,13 +58,21 @@ export const useInbox = defineStore('inbox', () => {
   }
   function start(role: string | undefined): void {
     stop()
+    active = true
     void refresh()
+    pushSettingsChanged()
     timer = window.setInterval(() => {
       if (document.hidden) return
       void refresh()
       if (role === 'agent') void pollCoaching()
     }, POLL_MS)
   }
-  function stop(): void { clearInterval(timer); timer = 0; all.value = []; loaded.value = false; seen = new Set() }
+  function stop(): void { active = false; clearInterval(timer); timer = 0; all.value = []; loaded.value = false; seen = new Set() }
+  /** Tell the server this device's mute and sound choices, so pushes that arrive while the app is closed follow them. */
+  function pushSettingsChanged(): void {
+    const id = useSession().user?.id
+    if (active && id) void syncPush(id, { mute: { ...settings.p.mute }, sounds: settings.p.sounds })
+  }
+  watch(() => [settings.p.mute.esc, settings.p.mute.cb, settings.p.mute.sys, settings.p.sounds], pushSettingsChanged)
   return { items, unread, loaded, refresh, markRead, start, stop }
 })

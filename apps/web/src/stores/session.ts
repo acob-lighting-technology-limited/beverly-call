@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import type { Role, SessionUser } from '@/types'
 import { ROLE_SCREENS } from '@/lib/roles'
 import { photoSrc } from '@/lib/photo'
+import { releasePush } from '@/lib/pwa'
 
 /**
  * The session comes from the API (httpOnly cookie, Beverly staff sign-on, portal_access = call).
@@ -44,6 +45,7 @@ export const useSession = defineStore('session', () => {
     await load()
   }
   async function logout() {
+    await releasePush().catch(() => undefined)   // while the cookie is still valid
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => undefined)
     user.value = null; viewAs.value = null
   }

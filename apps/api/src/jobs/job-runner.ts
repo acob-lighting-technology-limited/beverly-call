@@ -8,6 +8,12 @@ import { ingestRecordings } from './ingest-recordings.js'
 import { notifySweep } from './notify-sweep.js'
 import { verifyStoredChain } from '../audit/audit-log.js'
 
+const unusedStorage: RecordingStorage = {
+  signedUrl: () => Promise.reject(new Error('unused')),
+  upload: () => Promise.reject(new Error('unused')),
+  remove: () => Promise.reject(new Error('unused')),
+}
+
 export const JOB_NAMES = ['purge', 'ingest', 'sweep', 'verify-audit'] as const
 export type JobName = (typeof JOB_NAMES)[number]
 export const isJobName = (s: string): s is JobName => (JOB_NAMES as readonly string[]).includes(s)
@@ -19,7 +25,9 @@ export interface JobOutcome { exitCode: 0 | 1 | 2; result: Record<string, unknow
 /** The one place jobs are wired up, shared by the CLI (`run-jobs.ts`) and the secured cron endpoint. */
 export async function runJob(job: JobName, { env, pool, storage, push }: JobDeps): Promise<JobOutcome> {
   if (job === 'purge') {
-    const r = await purgeExpiredRecordings(pool, storage ?? recordingStorage(env))
+    const neverDelete = env.RECORDING_RETENTION_DAYS === null
+    // Retention "never" never touches the files, so the job must not require storage to be configured.
+    const r = await purgeExpiredRecordings(pool, storage ?? (neverDelete ? unusedStorage : recordingStorage(env)), { neverDelete })
     return { exitCode: r.failed ? 1 : 0, result: { job, ...r } }
   }
   if (job === 'ingest') {

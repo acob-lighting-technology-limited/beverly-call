@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { CALL_ALERT } from '@beverly-call/shared'
 import type { AppDeps } from '../app.js'
 import { parseCallEvent, parseRating, parseSmsEvent, secretMatches, type CallEvent } from '../telephony/africastalking.js'
 import { LANGUAGE_DIGITS, dialAgent, emptyResponse, languageMenu, noAgentCallback } from '../routing/ivr.js'
@@ -45,7 +46,7 @@ export const webhookRoutes = ({ env, pool, push }: AppDeps): FastifyPluginAsync 
     const claim = await pool.query(`update call_centre.agent_presence set status = 'busy' where agent_crm_id = $1 and status = 'available'`, [agent.agentId])
     if (!claim.rowCount) return route(ev, { ...call, agent_crm_id: null })
     await pool.query('update call_centre.calls set agent_crm_id = $2, answered_at = now() where id = $1', [call.id, agent.agentId])
-    await notify(pool, send, { userId: agent.agentId, category: 'sys', tone: 'ok', title: 'Incoming call', body: ev.callerNumber, link: '/call' })
+    await notify(pool, send, { userId: agent.agentId, category: 'sys', tone: 'ok', title: CALL_ALERT.incoming, body: ev.callerNumber, link: '/call', urgent: true })
     return dialAgent(agent.clientName, env.AT_VIRTUAL_NUMBER)
   }
 
@@ -71,7 +72,7 @@ export const webhookRoutes = ({ env, pool, push }: AppDeps): FastifyPluginAsync 
     if (ev.recordingUrl) {
       await pool.query(
         `insert into call_centre.recordings (call_id, storage_key, storage_bucket, duration_seconds, expires_at, source_url)
-         select $1,$2,'call-recordings',$3, now() + ($4 || ' days')::interval, $5
+         select $1,$2,'call-recordings',$3, case when $4::int is null then 'infinity'::timestamptz else now() + ($4::int || ' days')::interval end, $5
          where not exists (select 1 from call_centre.recordings where call_id = $1)`,
         [call.id, `calls/${ev.sessionId}.mp3`, ev.durationSeconds, env.RECORDING_RETENTION_DAYS, ev.recordingUrl])
     }

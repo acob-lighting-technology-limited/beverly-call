@@ -172,7 +172,7 @@ Overdue cases raise an alert once (dedupe key), notify the holder, show on the w
 
 **Recording playback.** Supervisor only. API signs a 5 minute URL for an ingested file and audits the play. Files never pass through the API. A recording not yet ingested returns "still being saved".
 
-**Retention (NDPA).** Daily purge deletes files past 90 days unless on legal hold, marks rows deleted only after the file is gone, retries failures next run, and logs every run as retention proof. Admins see last run, deleted, held, failed and waiting.
+**Retention.** Recordings are kept forever (owner decision, 2026-11-17): `RECORDING_RETENTION_DAYS` defaults to `never`, new recordings are stored with no expiry, and the daily purge job deletes nothing, whatever expiry a row carries, while still logging each run as proof. Setting a number of days switches the original behaviour back on: the job then deletes files past that age unless on legal hold, marks rows deleted only after the file is gone, and retries failures next run. Keeping recordings indefinitely should be covered by the privacy notice and a lawful basis under the NDPA.
 
 ### 6.5 Notifications pipeline
 
@@ -246,7 +246,7 @@ Call flow editor, alert limits, outages (shown to agents as call banners), saved
 | Spreadsheet injection | CSV cells neutralised |
 | Tampered audit | Append-only trigger, hash chain, daily verification job |
 | Overreach of Beverly Call | `beverly_call_api` role, RLS on every table, no service role, no CRM copy |
-| Personal data | NDPA 90 day retention, legal hold, masking, session lock, no secrets in git |
+| Personal data | Recordings kept indefinitely by decision (switchable to a day count), legal hold, masking, session lock, no secrets in git |
 
 ## 10. Reliability and failure behaviour
 

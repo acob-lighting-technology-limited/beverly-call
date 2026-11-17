@@ -14,7 +14,7 @@ const toast = useToast()
 // Only a real admin can change settings; an admin previewing another view sees them read-only.
 const canEdit = computed(() => session.user?.role === 'admin' && !session.viewAs)
 
-const number = useResource(() => api<{ virtualNumber: string | null; retentionDays: number }>('/admin/number'))
+const number = useResource(() => api<{ virtualNumber: string | null; retentionDays: number | null }>('/admin/number'))
 const limitsRes = useResource(() => api<AlertLimits>('/admin/settings/alert_limits'))
 const outagesRes = useResource(() => api<Outage[]>('/admin/settings/outages'))
 const repliesRes = useResource(() => api<string[]>('/admin/settings/saved_replies'))

@@ -31,7 +31,7 @@ const MATRIX: Record<string, R[] | null> = {
   'GET /api/support/tickets': STAFF, 'GET /api/support/stats': STAFF, 'GET /api/support/tickets/:id': STAFF, 'PATCH /api/support/tickets/:id': STAFF, 'POST /api/support/tickets/:id/messages': STAFF,
   'POST /api/customers/:id/notes': STAFF, 'POST /api/customers/sms': STAFF, 'POST /api/customers/:id/token-reveal': STAFF,
   'GET /api/notifications': STAFF, 'POST /api/notifications/read': STAFF, 'GET /api/handover': STAFF, 'POST /api/handover': STAFF,
-  'GET /api/replies': STAFF, 'GET /api/outages': STAFF, 'GET /api/push/key': STAFF, 'POST /api/push/subscribe': STAFF, 'POST /api/push/unsubscribe': STAFF,
+  'GET /api/replies': STAFF, 'GET /api/outages': STAFF, 'GET /api/push/key': STAFF, 'PUT /api/push/prefs': STAFF, 'POST /api/push/subscribe': STAFF, 'POST /api/push/unsubscribe': STAFF,
   'GET /api/wall': LEAD, 'GET /api/recordings': LEAD, 'POST /api/recordings/:id/hold': LEAD, 'GET /api/recordings/:id/url': LEAD,
   'GET /api/reports': LEAD, 'GET /api/reports/extras': LEAD, 'GET /api/metrics/:key': LEAD, 'GET /api/audit': ADMIN,
   'GET /api/coaching': LEAD, 'POST /api/coaching': LEAD, 'GET /api/coaching/inbox': AGENT, 'POST /api/monitor': LEAD,

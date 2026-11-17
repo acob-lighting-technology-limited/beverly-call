@@ -1,52 +1,58 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { INTERFACE_LOCALES } from '@beverly-call/shared'
 import SidePanel from '@/components/SidePanel.vue'
-import { api } from '@/lib/api'
+import { disablePush, enablePush, installState, promptInstall, pushStatus, type PushStatus } from '@/lib/pwa'
+import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
 import { useToast } from '@/stores/toast'
 import { useUi } from '@/stores/ui'
 
 const ui = useUi()
 const s = useSettings()
+const session = useSession()
 const toast = useToast()
-const pushOn = ref(false)
+const push = ref<PushStatus>('off')
 const pushNote = ref('')
-let installPrompt: (Event & { prompt(): Promise<void> }) | null = null
+const busy = ref(false)
 
 const PALETTES = [{ id: '', n: 'Sunny', c: '#FCD95C' }, { id: 'brand', n: 'Brand', c: '#3BBC4A' }, { id: 'emerald', n: 'Emerald', c: '#00CA91' }, { id: 'lime', n: 'Lime', c: '#B3E635' }, { id: 'forest', n: 'Forest', c: '#4AA969' }]
 const SOUND_KEY = 'bc.sounds'
 
-onMounted(async () => {
-  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e as never })
-  try { pushOn.value = Boolean(await (await navigator.serviceWorker?.getRegistration('/'))?.pushManager.getSubscription()) } catch { pushOn.value = false }
-})
+const refreshPush = async (): Promise<void> => { push.value = await pushStatus(session.user?.id) }
+onMounted(refreshPush)
+watch(() => ui.panel, (p) => { if (p === 'settings') void refreshPush() })
 
-const b64 = (k: string): Uint8Array => {
-  const pad = '='.repeat((4 - (k.length % 4)) % 4)
-  const raw = atob((k + pad).replace(/-/g, '+').replace(/_/g, '/'))
-  return Uint8Array.from(raw, (c) => c.charCodeAt(0))
-}
+const pushLocked = computed(() => push.value === 'unsupported' || push.value === 'needs-install' || push.value === 'blocked')
+const pushHelp = computed(() => ({
+  'needs-install': 'On iPhone and iPad, push alerts work once the app is installed: tap Share, then Add to Home Screen, and open it from there.',
+  unsupported: 'This browser does not support push alerts.',
+  blocked: 'Push alerts are blocked for this site. Allow notifications in your browser settings, then come back.',
+  on: 'Alerts and incoming-call notifications reach this device even when Beverly Call is closed. Answering a call still happens inside the app.',
+  off: 'Turn on to get alerts and incoming-call notifications even when Beverly Call is closed.',
+} as Record<PushStatus, string>)[push.value])
+const installHelp = computed(() => ({
+  installed: 'Installed on this device. Open it from your home screen or app list.',
+  ready: 'Install Beverly Call as an app on this device.',
+  ios: 'On iPhone and iPad: tap Share, then Add to Home Screen.',
+  manual: 'Use your browser menu: Install app, or Add to Home Screen.',
+})[installState.value])
 
 async function togglePush(on: boolean): Promise<void> {
-  pushNote.value = ''
+  const id = session.user?.id
+  if (!id || busy.value) return
+  busy.value = true; pushNote.value = ''
   try {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) { pushNote.value = 'Push is not supported in this browser.'; pushOn.value = false; return }
-    const reg = (await navigator.serviceWorker.getRegistration('/')) ?? (await navigator.serviceWorker.register('/sw.js'))
-    if (!on) {
-      const sub = await reg.pushManager.getSubscription()
-      if (sub) { await api('/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint: sub.endpoint }) }); await sub.unsubscribe() }
-      pushOn.value = false; return
+    if (!on) await disablePush()
+    else {
+      const r = await enablePush(id, { mute: { ...s.p.mute }, sounds: s.p.sounds })
+      if (r.ok) toast.show('Push alerts on'); else pushNote.value = r.reason
     }
-    const { publicKey } = await api<{ publicKey: string | null }>('/push/key')
-    if (!publicKey) { pushNote.value = 'Push alerts are not set up on the server yet.'; pushOn.value = false; return }
-    if ((await Notification.requestPermission()) !== 'granted') { pushNote.value = 'Push alerts are blocked in your browser settings.'; pushOn.value = false; return }
-    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(publicKey) as BufferSource })
-    await api('/push/subscribe', { method: 'POST', body: JSON.stringify(sub.toJSON()) })
-    pushOn.value = true; toast.show('Push alerts on')
-  } catch { pushNote.value = 'Could not change push alerts.'; pushOn.value = false }
+  } finally { busy.value = false; await refreshPush() }
 }
-function install(): void { if (installPrompt) void installPrompt.prompt(); else toast.show('Use Add to Home Screen in your browser menu') }
+async function install(): Promise<void> {
+  if ((await promptInstall()) === 'unavailable') toast.show(installHelp.value, 5000)
+}
 function setSounds(v: boolean): void { s.p.sounds = v; try { localStorage.setItem(SOUND_KEY, v ? '1' : '0') } catch { /* storage blocked */ } }
 </script>
 
@@ -84,8 +90,11 @@ function setSounds(v: boolean): void { s.p.sounds = v; try { localStorage.setIte
     <label class="sw"><span>Escalation alerts</span><input :checked="!s.p.mute.esc" type="checkbox" @change="s.p.mute.esc = !($event.target as HTMLInputElement).checked" /></label>
     <label class="sw"><span>Callback alerts</span><input :checked="!s.p.mute.cb" type="checkbox" @change="s.p.mute.cb = !($event.target as HTMLInputElement).checked" /></label>
     <label class="sw"><span>System alerts</span><input :checked="!s.p.mute.sys" type="checkbox" @change="s.p.mute.sys = !($event.target as HTMLInputElement).checked" /></label>
-    <label class="sw"><span>Push alerts on this device</span><input :checked="pushOn" type="checkbox" @change="togglePush(($event.target as HTMLInputElement).checked)" /></label>
-    <p v-if="pushNote" role="status" style="color: var(--mut); margin: 4px 0">{{ pushNote }}</p>
-    <div class="btns"><button class="y" @click="install">Install app</button></div>
+    <label class="sw"><span>Push alerts on this device</span><input :checked="push === 'on'" :disabled="pushLocked || busy" type="checkbox" @change="togglePush(($event.target as HTMLInputElement).checked)" /></label>
+    <p role="status" style="color: var(--mut); font-size: 12px; margin: 4px 0">{{ pushNote || pushHelp }}</p>
+
+    <h3>App</h3>
+    <p style="color: var(--mut); font-size: 12px; margin: 0 0 8px">{{ installHelp }}</p>
+    <div v-if="installState !== 'installed'" class="btns"><button class="y" @click="install">Install app</button></div>
   </SidePanel>
 </template>

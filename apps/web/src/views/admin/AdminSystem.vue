@@ -13,6 +13,7 @@ const retention = useResource(() => api<RetentionStatus>('/admin/retention'))
 const connections = useResource(() => api<Connection[]>('/admin/connections'))
 
 function reloadAll(): void { void connections.reload(); void retention.reload() }
+const keptForever = computed(() => retention.data.value?.retentionDays === null)
 const needsAttention = computed(() => !!retention.data.value && (retention.data.value.pendingPurge > 0 || retention.data.value.lastFailed > 0))
 </script>
 
@@ -23,9 +24,10 @@ const needsAttention = computed(() => !!retention.data.value && (retention.data.
         <div v-for="c in connections.data.value ?? []" :key="c.name" class="row"><span>{{ c.name }}<small class="adm-sub">{{ c.detail }}</small></span><span class="pill" :class="c.ok ? 'ok' : 'ye'">{{ c.ok ? 'Connected' : 'Check' }}</span></div></div>
 
       <div class="c s6"><div class="hd"><Icon name="lock" /><b>Retention proof</b>
-        <span v-if="retention.data.value" class="pill" :class="needsAttention ? 'ye' : 'ok'">{{ needsAttention ? 'Needs attention' : 'On schedule' }}</span></div>
+        <span v-if="retention.data.value" class="pill" :class="needsAttention ? 'ye' : 'ok'">{{ keptForever ? 'Kept forever' : needsAttention ? 'Needs attention' : 'On schedule' }}</span></div>
         <StateBanner :loading="retention.loading.value" :error="retention.error.value" what="retention status" />
         <template v-if="retention.data.value">
+          <div v-if="keptForever" class="row"><span>Policy</span><span>Recordings are never deleted</span></div>
           <div class="row"><span>Last purge</span><span>{{ retention.data.value.lastRunAt ? shortDate(retention.data.value.lastRunAt) : 'Never run' }}</span></div>
           <div class="row"><span>Last run</span><span>{{ retention.data.value.lastDeleted }} deleted · {{ retention.data.value.lastHeld }} held · {{ retention.data.value.lastFailed }} failed</span></div>
           <div v-if="retention.data.value.pendingPurge" class="row"><span>Expired, waiting to purge</span><span>{{ retention.data.value.pendingPurge }}</span></div></template></div>

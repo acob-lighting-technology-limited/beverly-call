@@ -11,6 +11,8 @@ export function serverlessEnv(source: Record<string, string | undefined>, bundle
     NODE_ENV: 'production',
     ALLOWED_ORIGIN: source.ALLOWED_ORIGIN ?? self,
     API_PUBLIC_URL: source.API_PUBLIC_URL ?? self,
+    // Push services want a contact for the sender: use the site itself rather than a made-up mailbox.
+    VAPID_SUBJECT: source.VAPID_SUBJECT ?? self,
     DATABASE_SSL_CA: source.DATABASE_SSL_CA ?? bundledCa,
   })
 }

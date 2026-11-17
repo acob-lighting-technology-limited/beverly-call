@@ -55,7 +55,7 @@ async function hold(r: Recording): Promise<void> {
           <tbody>
             <tr v-for="r in rows" :key="r.id" :class="{ sel: r.id === playing?.rec.id }">
               <td data-label="Date">{{ shortDate(r.date) }}</td><td data-label="Caller">{{ show(r.caller) }}</td><td data-label="Agent">{{ agentLabel(r) }}</td><td data-label="Length">{{ clock(r.seconds) }}</td>
-              <td data-label="Expires"><span v-if="r.legalHold" class="pill ye">Legal hold</span><template v-else>{{ shortDate(r.expiresAt) }}</template></td>
+              <td data-label="Expires"><span v-if="r.legalHold" class="pill ye">Legal hold</span><template v-else-if="r.expiresAt">{{ shortDate(r.expiresAt) }}</template><template v-else>Kept forever</template></td>
               <td class="act"><div class="acs"><button :aria-label="`Play recording from ${show(r.caller)}`" title="Play" @click="play(r)"><Icon name="x-play" /></button>
                 <button :aria-label="r.legalHold ? 'Release legal hold' : 'Hold for legal review'" :title="r.legalHold ? 'Release hold' : 'Hold for review'" @click="hold(r)"><Icon name="lock" /></button></div></td></tr>
           </tbody></table></div>
@@ -69,7 +69,7 @@ async function hold(r: Recording): Promise<void> {
           <div class="row"><span>Recorded</span><span>{{ shortDate(playing.rec.date) }}</span></div>
           <div class="row"><span>Length</span><span>{{ clock(playing.rec.seconds) }}</span></div>
           <audio :key="playing.rec.id" :src="playing.url" controls autoplay preload="none" class="rec-audio" :aria-label="`Recording from ${show(playing.rec.caller)}`"></audio>
-          <p class="rec-note">Every play is logged. The link expires in 5 minutes.</p></template>
+          <p class="rec-note">Every play is logged. The play link is short-lived.</p></template>
         <EmptyState v-else compact icon="play" title="Choose a recording" hint="Press play on any row. Every play is logged." />
       </div>
     </div>

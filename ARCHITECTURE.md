@@ -54,7 +54,7 @@ Naming: `.ts` files kebab-case, components PascalCase, functions camelCase, no i
 ## Done in this version
 - All eight screens are ported; comments, settings (alert limits, call flow), retention proof, recording playback (signed URLs, audited), customer history (masked tokens) and staff names are implemented.
 - Africa's Talking voice webhook (`POST /api/webhooks/at/voice`, secret-authenticated, exempt from the browser Origin check).
-- Daily retention job: `pnpm --filter @beverly-call/api exec tsx src/jobs/run-purge.ts` (schedule it daily). Logs to `call_centre.retention_runs`.
+- Retention job: runs daily through `GET /api/cron/purge`. With the default `RECORDING_RETENTION_DAYS=never` it deletes nothing and only logs a run to `call_centre.retention_runs`.
 - Local development: `pnpm dev:mock` (in-memory API, sample data) plus `pnpm dev`. End-to-end tests: `pnpm e2e`.
 
 ## Needs action outside this repo

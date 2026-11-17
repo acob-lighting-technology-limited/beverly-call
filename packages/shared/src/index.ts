@@ -61,7 +61,7 @@ export type WallSnapshot = z.infer<typeof wallSchema>
 
 export const recordingSchema = z.object({
   id: z.string(), date: z.string(), caller: z.string(), agentId: z.string(), seconds: z.number().int(),
-  expiresAt: z.string(), legalHold: z.boolean(),
+  expiresAt: z.string().nullable(), legalHold: z.boolean(),
   /** The agent's display name from Beverly's staff directory, when known. */
   agentName: z.string().nullish(),
 })
@@ -117,7 +117,7 @@ export const DEFAULT_CALL_FLOW: CallFlowStep[] = [
 
 export const retentionSchema = z.object({
   lastRunAt: z.string().nullable(), lastDeleted: z.number().int(), lastHeld: z.number().int(), lastFailed: z.number().int(),
-  pendingPurge: z.number().int(), retentionDays: z.number().int(),
+  pendingPurge: z.number().int(), retentionDays: z.number().int().nullable(),
 })
 export type RetentionStatus = z.infer<typeof retentionSchema>
 

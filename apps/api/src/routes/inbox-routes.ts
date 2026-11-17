@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { DEFAULT_SAVED_REPLIES, handoverSchema, outagesSchema, pushSubscriptionSchema, savedRepliesSchema, type AppNotification, type HandoverView, type Outage } from '@beverly-call/shared'
+import { DEFAULT_SAVED_REPLIES, handoverSchema, outagesSchema, pushPrefsUpdateSchema, pushSubscriptionSchema, savedRepliesSchema, type AppNotification, type HandoverView, type Outage } from '@beverly-call/shared'
 import type { AppDeps } from '../app.js'
 import { requireRole } from '../auth/guards.js'
 import { auditAs } from '../audit/audit-request.js'
@@ -73,10 +73,22 @@ export const inboxRoutes = ({ env, pool, push }: AppDeps): FastifyPluginAsync =>
     const body = pushSubscriptionSchema.safeParse(req.body)
     if (!body.success) return reply.code(400).send({ error: 'Invalid subscription' })
     await pool.query(
-      `insert into call_centre.push_subscriptions (user_crm_id, endpoint, p256dh, auth) values ($1,$2,$3,$4)
-       on conflict (endpoint) do update set user_crm_id = excluded.user_crm_id, p256dh = excluded.p256dh, auth = excluded.auth`,
-      [req.session!.user.id, body.data.endpoint, body.data.keys.p256dh, body.data.keys.auth])
+      `insert into call_centre.push_subscriptions (user_crm_id, endpoint, p256dh, auth, mute_esc, mute_cb, mute_sys, sounds) values ($1,$2,$3,$4,$5,$6,$7,$8)
+       on conflict (endpoint) do update set user_crm_id = excluded.user_crm_id, p256dh = excluded.p256dh, auth = excluded.auth,
+         mute_esc = excluded.mute_esc, mute_cb = excluded.mute_cb, mute_sys = excluded.mute_sys, sounds = excluded.sounds`,
+      [req.session!.user.id, body.data.endpoint, body.data.keys.p256dh, body.data.keys.auth,
+        body.data.prefs?.mute.esc ?? false, body.data.prefs?.mute.cb ?? false, body.data.prefs?.mute.sys ?? false, body.data.prefs?.sounds ?? true])
     return reply.code(204).send()
+  })
+
+  /** Keeps this device's mute and sound choices in step with the app's Settings, for pushes that arrive while the app is closed. */
+  app.put('/push/prefs', { preHandler: staff }, async (req, reply) => {
+    const body = pushPrefsUpdateSchema.safeParse(req.body)
+    if (!body.success) return reply.code(400).send({ error: 'Invalid preferences' })
+    const r = await pool.query(
+      'update call_centre.push_subscriptions set mute_esc = $3, mute_cb = $4, mute_sys = $5, sounds = $6 where endpoint = $1 and user_crm_id = $2',
+      [body.data.endpoint, req.session!.user.id, body.data.mute.esc, body.data.mute.cb, body.data.mute.sys, body.data.sounds])
+    return reply.code(r.rowCount ? 204 : 404).send()
   })
 
   app.post('/push/unsubscribe', { preHandler: staff }, async (req, reply) => {

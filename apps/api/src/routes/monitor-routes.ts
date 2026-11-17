@@ -53,13 +53,13 @@ export const monitorRoutes = ({ env, pool, fetchImpl, storage }: AppDeps): Fasti
   })
 
   app.get('/recordings', { preHandler: lead }, async (req): Promise<Recording[]> => {
-    const r = await pool.query<{ id: string; started_at: Date; caller_number: string; agent_crm_id: string | null; duration_seconds: number; expires_at: Date; legal_hold: boolean }>(
-      `select r.id, c.started_at, c.caller_number, c.agent_crm_id, r.duration_seconds, r.expires_at, r.legal_hold
+    const r = await pool.query<{ id: string; started_at: Date; caller_number: string; agent_crm_id: string | null; duration_seconds: number; expires_at: Date | null; legal_hold: boolean }>(
+      `select r.id, c.started_at, c.caller_number, c.agent_crm_id, r.duration_seconds, case when r.expires_at = 'infinity' then null else r.expires_at end as expires_at, r.legal_hold
        from call_centre.recordings r join call_centre.calls c on c.id = r.call_id
        where r.deleted_at is null order by c.started_at desc limit 200`)
     await auditAs(pool, req, 'recording.list', 'recording', 'list')
     const names = await staffNames(env, req.session!.beverlyToken, fetchImpl, pool)
-    return r.rows.map((x) => ({ id: x.id, date: x.started_at.toISOString(), caller: x.caller_number, agentId: x.agent_crm_id ?? 'Unassigned', agentName: x.agent_crm_id ? names.get(x.agent_crm_id) ?? null : null, seconds: x.duration_seconds, expiresAt: x.expires_at.toISOString(), legalHold: x.legal_hold }))
+    return r.rows.map((x) => ({ id: x.id, date: x.started_at.toISOString(), caller: x.caller_number, agentId: x.agent_crm_id ?? 'Unassigned', agentName: x.agent_crm_id ? names.get(x.agent_crm_id) ?? null : null, seconds: x.duration_seconds, expiresAt: x.expires_at ? x.expires_at.toISOString() : null, legalHold: x.legal_hold }))
   })
 
   /** Hold a recording for legal review (exempt from purge) or release the hold. */

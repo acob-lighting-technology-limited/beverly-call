@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { outagesSchema, transferSchema, noteSchema, wrapUpSchema, languageSchema, type ActiveCall, type CallNote } from '@beverly-call/shared'
+import { CALL_ALERT, outagesSchema, transferSchema, noteSchema, wrapUpSchema, languageSchema, type ActiveCall, type CallNote } from '@beverly-call/shared'
 import type { AppDeps } from '../app.js'
 import { requireRole } from '../auth/guards.js'
 import { auditAs } from '../audit/audit-request.js'
@@ -107,7 +107,7 @@ export const callRoutes = ({ env, pool, fetchImpl, provider, push }: AppDeps): F
     if (!claim.rowCount) return reply.code(409).send({ error: 'That agent is not available' })
     await pool.query('update call_centre.calls set agent_crm_id = $2, transferred_from = $3 where id = $1', [call.id, body.data.toAgentId, me.id])
     await pool.query(`update call_centre.agent_presence set status = 'acw' where agent_crm_id = $1`, [me.id])
-    await notify(pool, send, { userId: body.data.toAgentId, category: 'sys', tone: 'ok', title: body.data.warm ? 'Warm transfer: caller is waiting' : 'Call transferred to you', body: call.caller_number, link: '/call' })
+    await notify(pool, send, { userId: body.data.toAgentId, category: 'sys', tone: 'ok', title: body.data.warm ? CALL_ALERT.warmTransfer : CALL_ALERT.transferred, body: call.caller_number, link: '/call', urgent: true })
     await auditAs(pool, req, 'call.transfer', 'call', call.id, { to: body.data.toAgentId, warm: body.data.warm })
     return reply.code(204).send()
   })
