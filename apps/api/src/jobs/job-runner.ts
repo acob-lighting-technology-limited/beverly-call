@@ -1,7 +1,7 @@
 import type { Pool } from 'pg'
 import type { Env } from '../config/env.js'
 import type { RecordingStorage } from '../storage/recording-storage.js'
-import { supabaseRecordingStorage } from '../storage/recording-storage.js'
+import { recordingStorage } from '../storage/index.js'
 import { webPushSender, type PushSender } from '../notify/notify.js'
 import { purgeExpiredRecordings } from './purge-recordings.js'
 import { ingestRecordings } from './ingest-recordings.js'
@@ -19,11 +19,11 @@ export interface JobOutcome { exitCode: 0 | 1 | 2; result: Record<string, unknow
 /** The one place jobs are wired up, shared by the CLI (`run-jobs.ts`) and the secured cron endpoint. */
 export async function runJob(job: JobName, { env, pool, storage, push }: JobDeps): Promise<JobOutcome> {
   if (job === 'purge') {
-    const r = await purgeExpiredRecordings(pool, storage ?? supabaseRecordingStorage(env))
+    const r = await purgeExpiredRecordings(pool, storage ?? recordingStorage(env))
     return { exitCode: r.failed ? 1 : 0, result: { job, ...r } }
   }
   if (job === 'ingest') {
-    const r = await ingestRecordings(pool, storage ?? supabaseRecordingStorage(env))
+    const r = await ingestRecordings(pool, storage ?? recordingStorage(env))
     return { exitCode: r.failed ? 1 : 0, result: { job, ...r } }
   }
   if (job === 'sweep') {

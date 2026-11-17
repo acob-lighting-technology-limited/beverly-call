@@ -5,7 +5,8 @@ import { requireRole } from '../auth/guards.js'
 import { auditAs } from '../audit/audit-request.js'
 import { staffNames } from '../beverly/staff-directory.js'
 import { TZ } from '../time.js'
-import { StorageUnavailable, supabaseRecordingStorage } from '../storage/recording-storage.js'
+import { StorageUnavailable } from '../storage/recording-storage.js'
+import { recordingStorage } from '../storage/index.js'
 
 const SL_SECONDS = 20   // service level: answered within this many seconds
 
@@ -79,7 +80,7 @@ export const monitorRoutes = ({ env, pool, fetchImpl, storage }: AppDeps): Fasti
     if (!rec) return reply.code(404).send({ error: 'Recording not found' })
     if (!rec.ingested_at) return reply.code(409).send({ error: 'This recording is still being saved' })
     try {
-      const url = await (storage ?? supabaseRecordingStorage(env)).signedUrl(rec.storage_bucket, rec.storage_key, 300)
+      const url = await (storage ?? recordingStorage(env)).signedUrl(rec.storage_bucket, rec.storage_key, 300)
       await auditAs(pool, req, 'recording.play', 'recording', req.params.id)
       return { url }
     } catch (e) {

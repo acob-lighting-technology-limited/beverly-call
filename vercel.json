@@ -58,6 +58,14 @@
   },
   "crons": [
     {
+      "path": "/api/cron/ingest",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/sweep",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/purge",
       "schedule": "0 2 * * *"
     },

@@ -41,7 +41,7 @@ flowchart LR
     WEB -- cookie session, /api --> API
     JOBS --> DB
     API --> DB[(Supabase Postgres: call_centre schema)]
-    API --> ST[(Supabase Storage: call-recordings)]
+    API --> ST[(SharePoint: call-recordings)]
   end
   API -- agent bearer token, read only --> BEV[Beverly CRM and Wallet API]
   API -- sign-on, own users row --> AUTH[Supabase Auth]
@@ -62,7 +62,7 @@ Trust boundaries: the browser is untrusted; the carrier is authenticated by a sh
 | Shared | `packages/shared` | One set of zod schemas and types for web and API |
 | Jobs | `tsx src/jobs/run-jobs.ts <job>` | `ingest`, `sweep` (every minute); `purge`, `verify-audit` (daily) |
 | Data | Supabase Postgres, schema `call_centre` | Calls, tickets, callbacks, recordings, presence, notes, notifications, QA, SMS log, settings, audit |
-| Storage | Supabase Storage bucket `call-recordings` | Recording files, signed URLs only |
+| Storage | Microsoft SharePoint document library (Microsoft Graph), folder `call-recordings`; Supabase Storage as fallback | Recording files, short-lived download links only |
 | Carrier | Africa's Talking behind `CommunicationsProvider` | IVR, dial, recording, SMS, outbound call, WebRTC token |
 | Push | Web Push (VAPID) | Alerts when the tab is closed |
 

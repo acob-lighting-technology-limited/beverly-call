@@ -6,6 +6,7 @@ import {
 } from '@beverly-call/shared'
 import type { AppDeps } from '../app.js'
 import { requireRole } from '../auth/guards.js'
+import { storageBackend } from '../storage/index.js'
 import { auditAs } from '../audit/audit-request.js'
 import { verifyStoredChain } from '../audit/audit-log.js'
 import { africasTalking } from '../telephony/provider.js'
@@ -79,7 +80,8 @@ export const adminRoutes = ({ env, pool, fetchImpl, provider }: AppDeps): Fastif
     const seen = hb.rows[0]?.last_seen
     out.push({ name: 'Carrier webhooks', ok: Boolean(env.AT_WEBHOOK_SECRET) && Boolean(seen), detail: !env.AT_WEBHOOK_SECRET ? 'Secret not set' : seen ? `Last event ${seen.toISOString()}` : 'Test needed: no events yet' })
     out.push({ name: 'Carrier API (SMS, calls, softphone)', ok: carrier.configured, detail: carrier.configured ? 'Credentials set' : 'AT_API_KEY or AT_USERNAME not set' })
-    out.push({ name: 'Recording storage', ok: Boolean(env.RECORDINGS_STORAGE_URL && env.RECORDINGS_STORAGE_KEY), detail: env.RECORDINGS_STORAGE_URL ? 'Configured' : 'Not configured' })
+    const backend = storageBackend(env)
+    out.push({ name: 'Recording storage', ok: backend !== null, detail: backend === 'sharepoint' ? 'Configured (SharePoint)' : backend === 'supabase' ? 'Configured (Supabase Storage)' : 'Not configured' })
     out.push({ name: 'Push alerts', ok: Boolean(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY), detail: env.VAPID_PUBLIC_KEY ? 'Configured' : 'VAPID keys not set' })
     return out
   })

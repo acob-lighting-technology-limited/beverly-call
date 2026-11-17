@@ -29,6 +29,11 @@ const envSchema = z.object({
   /** Supabase Storage for recordings. Playback and purge are refused when unset. */
   RECORDINGS_STORAGE_URL: z.string().url().optional(),
   RECORDINGS_STORAGE_KEY: z.string().min(1).optional(),
+  /** Recordings in a Microsoft SharePoint document library through Microsoft Graph (preferred when all four are set). The app needs Sites.ReadWrite.All, or Sites.Selected with write access to this site. */
+  AZURE_TENANT_ID: z.string().min(1).optional(),
+  AZURE_CLIENT_ID: z.string().min(1).optional(),
+  AZURE_CLIENT_SECRET: z.string().min(1).optional(),
+  SHAREPOINT_SITE_ID: z.string().min(1).optional(),
   /** Africa's Talking REST credentials (SMS, outbound calls, WebRTC tokens). Features degrade cleanly when unset. */
   AT_API_KEY: z.string().min(1).optional(),
   AT_USERNAME: z.string().min(1).optional(),
