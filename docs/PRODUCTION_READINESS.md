@@ -34,6 +34,11 @@ The code is in good shape and the checks below pass. It is **not yet proven live
 ## Deployment shape (as built)
 Static web app plus the API as one Vercel Function (`api/index.mjs`, 30 s limit) in the same project, so the session cookie is first-party. `/api/*` is rewritten to the function. `ALLOWED_ORIGIN` and `API_PUBLIC_URL` default to the Vercel URL unless set; set them explicitly if you use a custom domain.
 
+## Live status (2026-11-18)
+- **Production:** https://beverly-call.vercel.app (Vercel project `beverly-call`, public). The API runs as one function in the same project and starts cleanly; health returns 200 and sign-in reaches Beverly's real sign-on.
+- **Database:** the function connects as the limited `beverly_call_api` role through the Supabase pooler (not the main database user). All call-centre migrations, including `20261117110000_call_centre_push_prefs` (applied and recorded in `supabase_migrations.schema_migrations`), are in Beverly's live database.
+- **Still open:** a real staff sign-in and a full desk walkthrough on production, the Africa's Talking secrets and callback URLs, and the browser softphone (calls cannot carry audio in the background until it exists).
+
 ## Blockers (need your access or input)
 1. **Production environment variables in Vercel.** The five required by the build guard above plus `CRON_SECRET`, and the optional ones you use: `AT_WEBHOOK_SECRET`, `AT_API_KEY`, `AT_USERNAME`, `AT_VIRTUAL_NUMBER`, `RECORDINGS_STORAGE_URL`, `RECORDINGS_STORAGE_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `TRUST_PROXY_HOPS` (1 behind Vercel). Your local `.env` still has `NODE_ENV=development` and lacks `CRON_SECRET`, `API_PUBLIC_URL` and the three `AT_*` carrier keys; production values live in Vercel and were not checked.
 2. **Scheduled jobs (done).** `vercel.json` runs `ingest` and `sweep` every minute and `purge` (02:00) and `verify-audit` (02:30) daily through `GET /api/cron/:job`. The Vercel team is on the Pro plan, which allows per-minute crons. Crons only run on production deployments.
