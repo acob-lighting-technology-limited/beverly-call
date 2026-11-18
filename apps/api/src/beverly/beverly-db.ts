@@ -11,7 +11,7 @@ import type { BeverlyStaff } from './staff-directory.js'
  */
 export interface Actor { id: string; role: Role; /** false = the call centre serves every station (CALL_STATION_SCOPE=off, the default) */ scoped?: boolean }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Stations the actor may read, or null for no restriction. No assigned station is refused, as Beverly's own routes do. */
 export async function stationScope(pool: Pool, actor: Actor): Promise<string[] | null> {
@@ -43,15 +43,15 @@ const walletOwners = (id: string): string => `(
  * For lists: the few customers who own a wallet are found once, then each listed customer is matched to them by id, email, phone, or a bound number.
  * (Matching per listed row against all customers took a minute on the live data; against the wallet owners it is instant.)
  */
-const WALLET_CTE = `with wc as (
+export const WALLET_CTE = `with wc as (
   select c.id, lower(nullif(btrim(c.email), '')) as email, nullif(right(regexp_replace(coalesce(c.phone, ''), '\\D', '', 'g'), 10), '') as tail, w.ledger_balance_minor as bal
   from call_centre_read.wallets w join call_centre_read.customers c on c.id = w.owner_id where w.owner_type = 'customer')`
-const wcMatch = (id: string, email: string, tail: string): string => `(wc.id = ${id}
+export const wcMatch = (id: string, email: string, tail: string): string => `(wc.id = ${id}
   or (wc.email is not null and wc.email = lower(btrim(${email})))
   or (wc.tail is not null and wc.tail = ${tail})
   or exists (select 1 from call_centre.phone_bindings b where b.customer_id = ${id} and b.status = 'applied' and b.phone_tail = wc.tail))`
 
-const escapeLike = (s: string): string => s.replace(/[\\%_]/g, (c) => `\\${c}`)
+export const escapeLike = (s: string): string => s.replace(/[\\%_]/g, (c) => `\\${c}`)
 
 interface CustomerRow { id: string; full_name: string | null; phone: string | null; ledger_balance_minor: string | null; stations: string[] | null; meter: string | null }
 

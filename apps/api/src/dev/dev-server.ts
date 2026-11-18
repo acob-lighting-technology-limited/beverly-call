@@ -39,6 +39,20 @@ for (const [i, [c, bal, hold]] of [[MUSA, 320000, 20000], [NGOZI, 840000, 0], [T
   await pool.query(`insert into public.wallets (id, owner_type, owner_id) values ($1,'customer',$2)`, [uid(`wallet-${i}`), c])
   await pool.query(`insert into public.wallet_balances_stub values ($1,$2,$3,$4)`, [uid(`wallet-${i}`), bal, hold, Number(bal) - Number(hold)])
 }
+// Opt-in: a directory bigger than one page, to see paging, filters and totals. Example: MOCK_CUSTOMERS=300 pnpm dev:mock
+const EXTRA = Math.min(Math.max(Number(process.env.MOCK_CUSTOMERS ?? 0) || 0, 0), 5000)
+if (EXTRA > 0) {
+  await pool.query(`insert into public.customers (id, full_name, phone, email, status)
+    select gen_random_uuid(), 'Sample Customer ' || lpad(g::text, 4, '0'), case when g % 7 = 0 then '0803' || lpad((5550000 + g)::text, 7, '0') end, 'sample' || g || '@example.test', 'active'
+    from generate_series(1, $1::int) g`, [EXTRA])
+  await pool.query(`insert into public.customer_meters (customer_id, meter_id, station_id, status)
+    select id, 'SM-' || n, (array['KANO NORTH','ENUGU EAST','IKEJA'])[1 + (n % 3)], 'approved'
+    from (select id, row_number() over (order by full_name)::int n from public.customers where full_name like 'Sample Customer %') x`)
+  // Every 10th sample customer has a wallet; every other of those is low.
+  await pool.query(`with w as (select id, row_number() over (order by full_name)::int n from public.customers where full_name like 'Sample Customer %'),
+       ins as (insert into public.wallets (owner_type, owner_id) select 'customer', id from w where n % 10 = 0 returning id, owner_id)
+     insert into public.wallet_balances_stub select ins.id, case when (w.n / 10) % 2 = 0 then 90000 else 500000 end, 0, case when (w.n / 10) % 2 = 0 then 90000 else 500000 end from ins join w on w.id = ins.owner_id`)
+}
 await pool.query(`insert into public.purchase_orders (actor_type, actor_id, customer_id, meter_id, station_id, amount_minor, status, token, created_at) values
   ('customer',$1::uuid,$1::text,'4201 8837 112','KANO NORTH',500000,'delivered','3891 2207 5561 0000 4455', now() - interval '1 day'),
   ('customer',$1::uuid,$1::text,'4201 8837 112','KANO NORTH',300000,'delivered','1122 3344 5566 7788 9900', now() - interval '3 days')`, [MUSA])

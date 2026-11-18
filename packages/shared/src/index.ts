@@ -83,6 +83,30 @@ export const customerSchema = z.object({
 })
 export type Customer = z.infer<typeof customerSchema>
 
+/**
+ * The customer directory is large (thousands), so it is paged, filtered and counted on the server. Filters, totals and the summary
+ * tiles always describe the whole directory, never just the rows already loaded.
+ */
+export const CUSTOMER_PAGE_SIZE = 50
+export const CUSTOMER_MAX_PAGE_SIZE = 100
+/** A prepaid wallet below this many naira counts as "low". One definition for the API filter, the totals and the screen. */
+export const LOW_WALLET_NAIRA = 1500
+export const CUSTOMER_KINDS = ['all', 'prepaid', 'postpaid', 'low'] as const
+export type CustomerKind = (typeof CUSTOMER_KINDS)[number]
+export const customerPageQuerySchema = z.object({
+  q: z.string().trim().max(64).default(''),
+  limit: z.coerce.number().int().min(1).max(CUSTOMER_MAX_PAGE_SIZE).default(CUSTOMER_PAGE_SIZE),
+  offset: z.coerce.number().int().min(0).max(1_000_000).default(0),
+  kind: z.enum(CUSTOMER_KINDS).default('all'),
+  /** Comma-separated station names, e.g. "KANO-NORTH,IKEJA" */
+  area: z.string().max(400).default('').transform((v) => v.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean).slice(0, 20)),
+})
+export type CustomerPageQuery = z.infer<typeof customerPageQuerySchema>
+export const customerPageSchema = z.object({ customers: z.array(customerSchema), total: z.number().int(), offset: z.number().int(), limit: z.number().int() })
+export type CustomerPage = z.infer<typeof customerPageSchema>
+export const customerSummarySchema = z.object({ total: z.number().int(), prepaid: z.number().int(), postpaid: z.number().int(), low: z.number().int(), areas: z.array(z.string()) })
+export type CustomerSummary = z.infer<typeof customerSummarySchema>
+
 export const auditRowSchema = z.object({ seq: z.number().int(), at: z.string(), actorRole: z.string(), action: z.string(), entity: z.string(), entityId: z.string() })
 export type AuditRow = z.infer<typeof auditRowSchema>
 /** Audit log paging: server-side, so the whole hash-chained log can be browsed, not just the latest rows. */

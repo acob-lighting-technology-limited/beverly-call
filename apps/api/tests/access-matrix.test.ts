@@ -22,7 +22,7 @@ const MATRIX: Record<string, R[] | null> = {
   'POST /api/callbacks/:id/reschedule': AGENT, 'POST /api/callbacks/:id/start': AGENT, 'POST /api/callbacks/:id/complete': AGENT,
   'GET /api/cases': LEAD, 'GET /api/cases/mine': STAFF, 'POST /api/cases': STAFF, 'POST /api/cases/:id/assign': LEAD,
   'POST /api/cases/:id/resolve': STAFF, 'POST /api/cases/:id/comments': STAFF,
-  'GET /api/customers': STAFF, 'GET /api/customers/:id/detail': STAFF, 'GET /api/customers/:id/full': STAFF, 'GET /api/customers/:id/wallet': STAFF, 'GET /api/customers/:id/profile': STAFF,
+  'GET /api/customers': STAFF, 'GET /api/customers/page': STAFF, 'GET /api/customers/summary': STAFF, 'GET /api/customers/:id': STAFF, 'GET /api/customers/:id/detail': STAFF, 'GET /api/customers/:id/full': STAFF, 'GET /api/customers/:id/wallet': STAFF, 'GET /api/customers/:id/profile': STAFF,
   'GET /api/agents/:id/profile': STAFF, 'PUT /api/agents/:id/photo': STAFF, 'GET /api/agents/:id/photo': STAFF, 'DELETE /api/agents/:id/photo': STAFF,
   'GET /api/admin/shifts/templates': LEAD, 'POST /api/admin/shifts/templates': ADMIN, 'PUT /api/admin/shifts/templates/:id': ADMIN, 'DELETE /api/admin/shifts/templates/:id': ADMIN,
   'GET /api/admin/shifts/rotations': LEAD, 'POST /api/admin/shifts/rotations': ADMIN, 'PUT /api/admin/shifts/rotations/:id': ADMIN, 'DELETE /api/admin/shifts/rotations/:id': ADMIN,

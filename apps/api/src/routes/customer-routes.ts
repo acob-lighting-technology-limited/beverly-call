@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import type { Customer, CustomerDetail, CustomerFull, CustomerProfile, TimelineEvent, WalletInfo } from '@beverly-call/shared'
-import { customerSmsSchema, noteSchema, tokenRevealSchema } from '@beverly-call/shared'
+import { customerPageQuerySchema, customerSmsSchema, noteSchema, tokenRevealSchema, type CustomerPage, type CustomerSummary } from '@beverly-call/shared'
 import type { AppDeps } from '../app.js'
 import { requireRole } from '../auth/guards.js'
 import { auditAs } from '../audit/audit-request.js'
@@ -26,6 +26,33 @@ export const customerRoutes = ({ env, pool, fetchImpl, provider }: AppDeps): Fas
       const list = await beverlyData({ env, pool, fetchImpl }, req.session!).customers(q)
       if (q) await auditAs(pool, req, 'customer.search', 'customer', 'search')
       return list
+    } catch (e) { return beverlyFail(reply, e) }
+  })
+
+  /**
+   * The customer directory, one page at a time: ?q&limit&offset&kind&area. `total` is the number matching the filters across the whole
+   * directory. (`GET /customers` above stays the quick first-page search used by the pickers.)
+   */
+  app.get('/customers/page', { preHandler: staff }, async (req, reply): Promise<CustomerPage | void> => {
+    const query = customerPageQuerySchema.safeParse(req.query)
+    if (!query.success) return reply.code(400).send({ error: 'Invalid customer query' })
+    try {
+      const page = await beverlyData({ env, pool, fetchImpl }, req.session!).customerPage({ q: query.data.q, limit: query.data.limit, offset: query.data.offset, kind: query.data.kind, areas: query.data.area })
+      if (query.data.q) await auditAs(pool, req, 'customer.search', 'customer', 'search')
+      return page
+    } catch (e) { return beverlyFail(reply, e) }
+  })
+
+  /** Totals for the summary tiles and the area filter, over the whole directory. */
+  app.get('/customers/summary', { preHandler: staff }, async (req, reply): Promise<CustomerSummary | void> => {
+    try { return await beverlyData({ env, pool, fetchImpl }, req.session!).customerSummary() } catch (e) { return beverlyFail(reply, e) }
+  })
+
+  /** One customer by id, wherever they sit in the directory (a link to a customer must not depend on a search). */
+  app.get<{ Params: { id: string } }>('/customers/:id', { preHandler: staff }, async (req, reply) => {
+    try {
+      const c = await beverlyData({ env, pool, fetchImpl }, req.session!).customerById(req.params.id)
+      return c ?? reply.code(404).send({ error: 'Customer not found' })
     } catch (e) { return beverlyFail(reply, e) }
   })
 

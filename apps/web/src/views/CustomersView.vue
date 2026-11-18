@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { humanStatus, purchaseTone } from '@/lib/status'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { Customer, CustomerDetail, CustomerFull, CustomerProfile, WalletInfo } from '@beverly-call/shared'
+import { CUSTOMER_PAGE_SIZE, LOW_WALLET_NAIRA, type Customer, type CustomerDetail, type CustomerFull, type CustomerPage, type CustomerProfile, type CustomerSummary, type WalletInfo } from '@beverly-call/shared'
 import Icon from '@/components/Icon.vue'
 import CustomerProfileCard from '@/components/CustomerProfileCard.vue'
 import KpiTile from '@/components/KpiTile.vue'
@@ -31,7 +31,12 @@ const bindOpen = ref(false)
 const bindings = ref<InstanceType<typeof BindingsPanel> | null>(null)
 const q = ref('')
 const list = ref<Customer[]>([])
+/** How many customers match the search and filters across the whole directory (the list above only holds what has been loaded). */
+const total = ref(0)
+/** Totals over the whole directory for the tiles and the area filter. */
+const summary = ref<CustomerSummary | null>(null)
 const loading = ref(true)
+const loadingMore = ref(false)
 const error = ref('')
 const chip = ref<'all' | 'prepaid' | 'postpaid' | 'low'>('all')
 const extra = ref<Record<string, string[]>>({})
@@ -39,26 +44,54 @@ const VIEW_KEY = 'bc.cust.view'
 const view = ref<ViewMode>((() => { try { return (localStorage.getItem(VIEW_KEY) as ViewMode) || 'cards' } catch { return 'cards' } })())
 const setView = (v: ViewMode): void => { view.value = v; try { localStorage.setItem(VIEW_KEY, v) } catch { /* storage blocked */ } }
 let timer = 0
+let ticket = 0   // a slow answer to an old search must never replace a newer one
 
+const pageUrl = (offset: number): string => {
+  const p = new URLSearchParams({ q: q.value.trim(), limit: String(CUSTOMER_PAGE_SIZE), offset: String(offset), kind: chip.value })
+  if (extra.value.area?.length) p.set('area', extra.value.area.join(','))
+  return `/customers/page?${p}`
+}
+/** Starts again from the first page whenever the search or a filter changes. */
 async function search(): Promise<void> {
+  const mine = ++ticket
   loading.value = true; error.value = ''
-  try { list.value = await api<Customer[]>(`/customers?q=${encodeURIComponent(q.value.trim())}`) }
-  catch (e) { error.value = e instanceof Error ? e.message : 'Lookup failed.' }
-  finally { loading.value = false }
+  try {
+    const r = await api<CustomerPage>(pageUrl(0))
+    if (mine !== ticket) return
+    list.value = r.customers; total.value = r.total
+  } catch (e) { if (mine === ticket) error.value = e instanceof Error ? e.message : 'Lookup failed.' }
+  finally { if (mine === ticket) loading.value = false }
+}
+async function loadMore(): Promise<void> {
+  if (loading.value || loadingMore.value || list.value.length >= total.value) return
+  const mine = ticket
+  loadingMore.value = true
+  try {
+    const r = await api<CustomerPage>(pageUrl(list.value.length))
+    if (mine !== ticket) return
+    const seen = new Set(list.value.map((c) => c.id))
+    list.value = [...list.value, ...r.customers.filter((c) => !seen.has(c.id))]
+    total.value = r.total
+  } catch { toast.show('Could not load more customers') }
+  finally { loadingMore.value = false }
 }
 function onInput(): void { clearTimeout(timer); timer = window.setTimeout(search, 300) }
+watch([chip, extra], () => { void search() }, { deep: true })
 
-const LOW = 1500
-const isLow = (c: Customer): boolean => c.balance !== null && c.balance < LOW
-const groups = computed<FilterGroup[]>(() => [
-  { key: 'area', label: 'Area', options: [...new Set(list.value.map((c) => c.area).filter(Boolean))].sort() },
-  { key: 'type', label: 'Account type', options: ['Prepaid', 'Postpaid'] },
-])
-const shown = computed(() => list.value.filter((c) =>
-  (chip.value === 'all' || (chip.value === 'prepaid' && c.balance !== null) || (chip.value === 'postpaid' && c.balance === null) || (chip.value === 'low' && isLow(c))) &&
-  (!extra.value.area?.length || extra.value.area.includes(c.area)) &&
-  (!extra.value.type?.length || extra.value.type.includes(c.balance === null ? 'Postpaid' : 'Prepaid'))))
-const lowCount = computed(() => list.value.filter(isLow).length)
+// Load the next page on its own as the end of the list scrolls into view; the button below stays for keyboard and assistive-technology users.
+const more = ref<HTMLElement | null>(null)
+let watcher: IntersectionObserver | null = null
+watch(more, (el) => {
+  watcher?.disconnect()
+  if (el && 'IntersectionObserver' in window) { watcher = new IntersectionObserver((e) => { if (e[0]?.isIntersecting) void loadMore() }, { rootMargin: '300px' }); watcher.observe(el) }
+})
+onBeforeUnmount(() => { watcher?.disconnect(); clearTimeout(timer) })
+
+const isLow = (c: Customer): boolean => c.balance !== null && c.balance < LOW_WALLET_NAIRA
+const groups = computed<FilterGroup[]>(() => [{ key: 'area', label: 'Area', options: summary.value?.areas ?? [...new Set(list.value.map((c) => c.area).filter(Boolean))].sort() }])
+const shown = computed(() => list.value)
+const remaining = computed(() => Math.max(total.value - list.value.length, 0))
+const count = (n: number): string => n.toLocaleString('en-US')
 const show = (p: string) => (settings.p.mask ? maskPhone(p) : p)
 const initials = (n: string) => n.split(' ').map((w) => w[0] ?? '').join('').slice(0, 2).toUpperCase()
 const hue = (n: string): number => [...n].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 17)
@@ -88,9 +121,14 @@ function back(): void { sel.value = null; void router.replace({ path: '/cust' })
 async function openById(id: string): Promise<void> {
   const known = list.value.find((c) => c.id === id)
   if (known) return open(known)
-  try { const r = await api<Customer[]>(`/customers?q=${encodeURIComponent(id)}`); const hit = r.find((c) => c.id === id) ?? r[0]; if (hit) await open(hit) } catch { /* directory still usable */ }
+  // By id, so a link to any customer opens them, however far down the directory they are.
+  try { await open(await api<Customer>(`/customers/${encodeURIComponent(id)}`)) } catch { toast.show('That customer could not be found') }
 }
-onMounted(async () => { await search(); if (typeof route.query.open === 'string') await openById(route.query.open) })
+onMounted(async () => {
+  void api<CustomerSummary>('/customers/summary').then((r) => { summary.value = r }).catch(() => { /* the tiles fall back to the loaded page */ })
+  await search()
+  if (typeof route.query.open === 'string') await openById(route.query.open)
+})
 watch(() => route.query.open, (id) => { if (typeof id === 'string' && sel.value?.id !== id) void openById(id); if (!id) sel.value = null })
 
 const lastContacted = computed(() => (full.value?.lastContacted ? shortDate(full.value.lastContacted) : 'No contact yet'))
@@ -127,7 +165,7 @@ const canCall = computed(() => session.role === 'agent' || session.role === 'sup
     <!-- Directory -->
     <div v-if="!sel">
       <div v-sticky-head class="head"><div class="ht"><h1>Customers</h1><button v-if="canCall || session.role === 'admin'" @click="bindOpen = true">Bind a number</button></div>
-        <div v-hover-scroll class="kp"><KpiTile icon="users" :value="pad2(list.length)" label="Customers" /><KpiTile icon="wallet" :value="pad2(lowCount)" label="Low wallet" dark /></div></div>
+        <div v-hover-scroll class="kp"><KpiTile icon="users" :value="count(summary?.total ?? total)" label="Customers" /><KpiTile icon="wallet" :value="summary ? count(summary.low) : '—'" label="Low wallet" dark /></div></div>
       <BindingsPanel ref="bindings" />
       <div class="cdh">
         <label class="sch"><Icon name="users" /><input v-model="q" type="search" aria-label="Search customers" placeholder="Search by name, phone, email or meter" @input="onInput" /></label>
@@ -135,7 +173,7 @@ const canCall = computed(() => session.role === 'agent' || session.role === 'sup
       </div>
       <div v-hover-scroll class="chs" role="group" aria-label="Quick filters">
         <button v-for="c in ([['all', 'All'], ['prepaid', 'Prepaid'], ['postpaid', 'Postpaid'], ['low', 'Low wallet']] as const)" :key="c[0]" :class="{ on: chip === c[0] }" @click="chip = c[0]">{{ c[1] }}</button></div>
-      <div class="cnt" aria-live="polite" style="margin: 8px 2px">{{ shown.length }} of {{ list.length }} customers</div>
+      <div class="cnt" aria-live="polite" style="margin: 8px 2px">Showing {{ count(list.length) }} of {{ count(total) }} customers</div>
       <StateBanner :loading="loading" :error="error" what="customers" />
       <div v-if="!loading && !error && !shown.length" class="ban">No customer found. Try a name, phone, email or meter number.</div>
       <div v-if="view === 'cards'" class="cgrid">
@@ -157,6 +195,9 @@ const canCall = computed(() => session.role === 'agent' || session.role === 'sup
         <tbody><tr v-for="c in shown" :key="c.id" tabindex="0" @click="open(c)" @keydown.enter="open(c)">
           <td data-label="Customer"><span class="nmc"><span class="cav" style="background: var(--yel)">{{ initials(c.name) }}</span>{{ c.name }}</span></td><td data-label="Meter">{{ c.meter || '—' }}</td><td data-label="Phone">{{ show(c.phone) }}</td>
           <td data-label="Area">{{ c.area }}</td><td data-label="Balance">{{ money(c.balance) }}</td><td data-label="Status"><span class="pill" :class="isLow(c) ? 'ye' : 'vi'">{{ isLow(c) ? 'Low wallet' : 'All good' }}</span></td></tr></tbody></table></div></div>
+      <div v-if="!loading && !error && remaining > 0" ref="more" class="cmore">
+        <button :disabled="loadingMore" @click="loadMore">{{ loadingMore ? 'Loading…' : `Show ${count(Math.min(remaining, CUSTOMER_PAGE_SIZE))} more` }}</button>
+        <small>{{ count(remaining) }} more not shown yet</small></div>
     </div>
 
     <!-- Detail -->
@@ -218,3 +259,9 @@ const canCall = computed(() => session.role === 'agent' || session.role === 'sup
     <BindNumberModal :open="bindOpen" @close="bindOpen = false" @done="bindings?.load()" />
   </section>
 </template>
+
+<style scoped>
+/* "Show more" under the directory: the next page also loads by itself as this scrolls into view. */
+.cmore { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 14px 0 6px; }
+.cmore small { color: var(--mut); font-size: 11px; font-variant-numeric: tabular-nums; }
+</style>
