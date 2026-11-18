@@ -75,10 +75,12 @@ await pool.query(`
          (array['Resolved on the call','Resolved on the call','Escalated to wallet staff','Callback needed'])[1 + g % 4],
          case when g % 3 = 0 then 3 + g % 3 else null end, 3.5 + (g % 5)
   from generate_series(1, 90) g`, [uid('chidi'), uid('tunde'), uid('ngozi'), uid('sade')])
-await pool.query(`insert into call_centre.tickets (ticket_ref, customer_ref, category, priority, agent_crm_id, sla_due_at, status, amount_ngn, customer_phone) values
-  ('EX-2041',$3,'wallet_debited_no_token','HIGH',$1, now() + interval '3 hours','OPEN',5000,'0803 555 0142'),
-  ('EX-2040',$4,'token_not_received','MEDIUM',$2, now() + interval '5 hours','INVESTIGATING',3000,'0706 555 0188'),
-  ('EX-2039',$5,'wrong_meter_credited','MEDIUM',$1, now() + interval '8 hours','OPEN',2000,'0902 555 0121')`, [uid('chidi'), uid('tunde'), MUSA, NGOZI, TOPE])
+await pool.query(`insert into call_centre.tickets (ticket_ref, customer_ref, category, priority, agent_crm_id, created_by_crm_id, sla_due_at, status, amount_ngn, customer_phone) values
+  ('EX-2041',$3,'wallet_debited_no_token','HIGH',$1,$1, now() + interval '3 hours','OPEN',5000,'0803 555 0142'),
+  ('EX-2040',$4,'token_not_received','MEDIUM',$2,$2, now() + interval '5 hours','INVESTIGATING',3000,'0706 555 0188'),
+  ('EX-2039',$5,'wrong_meter_credited','MEDIUM',$1,$1, now() + interval '8 hours','OPEN',2000,'0902 555 0121'),
+  -- nobody holds this one yet: it waits in the queue for someone to take it
+  ('EX-2038',$5,'billing_dispute','LOW',null,$1, now() + interval '6 hours','OPEN',0,'0902 555 0121')`, [uid('chidi'), uid('tunde'), MUSA, NGOZI, TOPE])
 await pool.query(`insert into call_centre.callbacks (callback_ref, phone_number, language, reason, scheduled_for) values
   ('CB-DEMO1','0902 555 0121','yo','Meter query', now() + interval '2 hours'), ('CB-DEMO2','0813 555 0199','ha','Token not received', now() + interval '4 hours')`)
 await pool.query(`insert into call_centre.recordings (call_id, storage_key, storage_bucket, duration_seconds, expires_at, ingested_at)

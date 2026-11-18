@@ -16,7 +16,7 @@ describe('cases', () => {
     const a = await h.as('agent1@x.test')
     const r = await h.send('POST', '/api/cases', a, newCase())
     expect(r.status).toBe(201)
-    expect(r.json).toMatchObject({ id: 'EX-2042', state: 'New', amount: 5000, customer: 'c1' })
+    expect(r.json).toMatchObject({ id: 'EX-2042', state: 'Working', amount: 5000, customer: 'c1', raisedById: A1, agentId: A1 })   // the opener keeps it, so it is already being worked
     expect(r.json.slaMinutes).toBeGreaterThan(40)
     expect(r.json.slaMinutes).toBeLessThanOrEqual(45)
     expect((await h.send('POST', '/api/cases', a, newCase())).json.id).toBe('EX-2043')
@@ -26,6 +26,7 @@ describe('cases', () => {
 
   it('agents see only their own cases; supervisors see everything and can assign', async () => {
     const a = await h.as('agent1@x.test'); const b = await h.as('agent2@x.test'); const sup = await h.as('sup1@x.test')
+    await h.send('PUT', '/api/presence', b, { status: 'available', languages: ['en'] })   // agent2 has signed in, so they can hold cases
     await h.send('POST', '/api/cases', a, newCase())
     expect((await h.get('/api/cases/mine', a)).json).toHaveLength(1)
     expect((await h.get('/api/cases/mine', b)).json).toHaveLength(0)
@@ -33,7 +34,8 @@ describe('cases', () => {
     expect((await h.get('/api/cases', sup)).json).toHaveLength(1)
     expect((await h.send('POST', '/api/cases/EX-2042/assign', b, { agentId: A2 })).status).toBe(403)
     const r = await h.send('POST', '/api/cases/EX-2042/assign', sup, { agentId: A2 })
-    expect(r.json).toMatchObject({ state: 'Working' })
+    expect(r.json).toMatchObject({ state: 'New', agentId: A2, raisedById: A1 })   // handed on: waits for the new holder to start it
+    expect((await h.send('POST', '/api/cases/EX-2042/accept', b)).json).toMatchObject({ state: 'Working', accepted: true })
     expect((await h.get('/api/cases/mine', b)).json).toHaveLength(1)
     expect((await h.pool.query(`select 1 from call_centre.notifications where user_crm_id = $1 and title like '%assigned to you'`, [A2])).rowCount).toBe(1)
   })

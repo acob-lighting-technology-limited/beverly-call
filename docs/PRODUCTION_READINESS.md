@@ -52,6 +52,12 @@ Static web app plus the API as one Vercel Function (`api/index.mjs`, 30 s limit)
 - **Not possible yet: audio in the background.** The call itself is dialled to a browser WebRTC client, and the browser softphone is not built. A closed or backgrounded app can alert and open the call screen, but cannot carry the audio. That needs the softphone built against Africa's Talking's browser SDK and a sandbox test, or forwarding calls to the agent's own phone number.
 - **Needs applying:** `db/baseline/20261117110000_call_centre_push_prefs.sql` (adds per-device mute and sound columns to `push_subscriptions`) must be applied in the Beverly project before push preferences can be saved.
 
+## Case pipeline (built and tested, migration not yet applied live)
+- **Raised by and held by are separate.** A case can be opened onto me, onto a named agent or supervisor, or into the queue. A lead or the current holder can hand it on; anyone on the desk can take a queued case; the holder accepts ("start working") or returns it to the queue. Every step is recorded in `call_centre.ticket_events` (append-only) and audited.
+- **Targeted alerts.** The assignee, the previous holder, the raiser and, for unassigned cases (including overdue ones), the supervisors and admins are told. Alerts link to `/cases?open=EX-…` and follow each device's mute settings.
+- **Needs applying before this is deployed:** `db/baseline/20261118100000_call_centre_case_pipeline.sql` adds nullable columns to `call_centre.tickets` and the `ticket_events` table (additive; the one backfill sets "raised by" to the current holder of existing cases). The API's case routes need it, so apply it in the Beverly project first, then deploy.
+- **API mode vs database mode.** In database mode the people who can hold cases come from Beverly's staff data (everyone with the `call` portal who is not an admin). In API mode, where Beverly hides its staff list from most roles, anyone who has signed in to Beverly Call also counts; supervisors are recognised from a `role:supervisor` marker on their presence row.
+
 ## Decisions and risks
 - **Rate limiting is per function instance.** `@fastify/rate-limit` uses its in-memory store. On Vercel each instance counts separately, so the 8 per minute login limit is approximate. For a hard limit use a shared store (for example Upstash Redis).
 - **Station scope.** `CALL_STATION_SCOPE` is unset, so it defaults to `off`: every agent can search every customer. Set `on` if agents should only see their own stations.

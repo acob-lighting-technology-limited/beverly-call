@@ -11,6 +11,8 @@ const API = 8799
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: false,
+  // The first tests after a cold start can hit Vite re-optimising dependencies and reloading the page; one retry absorbs that, a real failure still fails twice.
+  retries: 1,
   workers: 1,
   use: { baseURL: `http://127.0.0.1:${WEB}`, channel: 'msedge', trace: 'retain-on-failure' },
   webServer: [

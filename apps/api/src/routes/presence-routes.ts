@@ -8,6 +8,8 @@ interface PresenceDbRow { agent_crm_id: string; name: string; status: PresenceSt
 
 /** Marks an admin's presence row. Without the 'vending' skill the router never picks it, and transfer lists skip it. */
 export const ADMIN_SKILL = 'role:admin'
+/** Marks a supervisor's presence row (they still take calls, so they keep 'vending'). Lets the case desk tell leads from agents when Beverly's staff directory is not readable. */
+export const SUPERVISOR_SKILL = 'role:supervisor'
 
 /** Safe carrier client name for the agent's browser softphone (letters, digits, dot, dash, underscore). */
 export const clientNameFor = (agentId: string): string => `cc.${agentId.replace(/[^\w.-]/g, '').slice(0, 48)}`
@@ -22,7 +24,8 @@ export const presenceRoutes = ({ pool }: AppDeps): FastifyPluginAsync => async (
     const body = setPresenceSchema.safeParse(req.body)
     if (!body.success) return reply.code(400).send({ error: 'Invalid presence' })
     const me = req.session!.user
-    const adminSkills = me.role === 'admin' ? [ADMIN_SKILL] : null
+    // Every role is written explicitly, so a person whose Beverly role changed does not keep a stale marker.
+    const adminSkills = me.role === 'admin' ? [ADMIN_SKILL] : me.role === 'supervisor' ? ['vending', SUPERVISOR_SKILL] : ['vending']
     const r = await pool.query<{ status: PresenceStatus }>(
       `insert into call_centre.agent_presence (agent_crm_id, name, client_name, status, languages, skills, idle_since, last_seen)
        values ($1,$2,$3,$4,$5::text[], coalesce($6::text[], array['vending']::text[]), now(), now())

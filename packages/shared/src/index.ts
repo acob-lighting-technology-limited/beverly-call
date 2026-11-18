@@ -3,6 +3,7 @@
  * the API validates with these schemas, the web app consumes the inferred types.
  */
 import { z } from 'zod'
+import { caseEventSchema } from './desk.js'
 
 export const roleSchema = z.enum(['agent', 'supervisor', 'admin'])
 export type Role = z.infer<typeof roleSchema>
@@ -19,7 +20,8 @@ export type LoginRequest = z.infer<typeof loginRequestSchema>
 export const caseStateSchema = z.enum(['Overdue', 'Working', 'New', 'Done'])
 export type CaseState = z.infer<typeof caseStateSchema>
 
-export const caseCommentSchema = z.object({ by: z.string(), text: z.string(), at: z.string() })
+/** `at` is the time of day for display; `ts` is the full timestamp, for ordering the activity feed across days. */
+export const caseCommentSchema = z.object({ by: z.string(), text: z.string(), at: z.string(), ts: z.string().default('') })
 export type CaseComment = z.infer<typeof caseCommentSchema>
 
 export const supportCaseSchema = z.object({
@@ -32,6 +34,15 @@ export const supportCaseSchema = z.object({
   customer: z.string(),
   amount: z.number().nonnegative(),
   comments: z.array(caseCommentSchema),
+  /** Who raised the case. `by` and `agentId` are who holds it now; they are different people once a case is handed on. */
+  raisedById: z.string().nullable().default(null),
+  raisedBy: z.string().default(''),
+  priority: z.string().default('MEDIUM'),
+  /** The holder has started working on it. */
+  accepted: z.boolean().default(false),
+  assignedAt: z.string().nullable().default(null),
+  /** Hand-overs and acknowledgements, oldest first. */
+  events: z.array(caseEventSchema).default([]),
 })
 export type SupportCase = z.infer<typeof supportCaseSchema>
 

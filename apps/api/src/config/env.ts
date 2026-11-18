@@ -18,6 +18,8 @@ const envSchema = z.object({
   /** PEM file (path) or inline PEM that signs the database server certificate. Verification stays on. Supabase: certs/supabase-ca.pem. */
   DATABASE_SSL_CA: z.string().min(1).optional(),
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
+  /** Requests allowed per minute per client address across the whole API (per function instance on Vercel). */
+  API_RATE_LIMIT: z.coerce.number().int().min(10).max(1_000_000).default(120),
   /** Sign-in attempts allowed per minute per IP. */
   LOGIN_RATE_LIMIT: z.coerce.number().int().min(1).max(10000).default(8),
   SESSION_TTL_MINUTES: z.coerce.number().int().min(5).max(720).default(480),

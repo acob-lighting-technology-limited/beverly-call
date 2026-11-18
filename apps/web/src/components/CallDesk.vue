@@ -2,12 +2,14 @@
 import { escalationPriorityLabel, humanStatus, purchaseTone } from '@/lib/status'
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { CASE_SLA_MINUTES, type ActiveCall, type CallNote, type CaseCategory, type CustomerDetail } from '@beverly-call/shared'
+import { CASE_SLA_MINUTES, type ActiveCall, type Assignee, type CallNote, type CaseCategory, type CustomerDetail } from '@beverly-call/shared'
 import SidePanel from '@/components/SidePanel.vue'
 import Icon from '@/components/Icon.vue'
 import { api } from '@/lib/api'
 import { shortDate } from '@/lib/format'
+import { PRESENCE_LABEL } from '@/lib/case-people'
 import { maskPhone } from '@/lib/mask'
+import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
 import { useToast } from '@/stores/toast'
 import { useUi } from '@/stores/ui'
@@ -85,12 +87,18 @@ const priority = ref<'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'>('MEDIUM')
 const amount = ref(0)
 const caseNote = ref('')
 const sla = computed(() => CASE_SLA_MINUTES[category.value])
+/** Who the escalation goes to: me (default), the queue, or a person. Loaded when the panel opens. */
+const assignTo = ref<string>('me')
+const people = ref<Assignee[]>([])
+const otherPeople = computed(() => people.value.filter((p) => p.id !== useSession().user?.id))
+watch(() => ui.panel, (p) => { if (p === 'desk') { assignTo.value = 'me'; void api<Assignee[]>('/cases/assignees').then((r) => { people.value = r }).catch(() => { people.value = [] }) } })
 async function escalate(): Promise<void> {
   if (!props.call) return
   try {
-    const c = await api<{ id: string }>('/cases', { method: 'POST', body: JSON.stringify({ category: category.value, priority: priority.value, customerRef: props.call.customer?.id ?? props.call.number, customerPhone: props.call.number, meterNumber: props.call.customer?.meter, callId: props.call.id, amountNgn: amount.value, notes: caseNote.value || undefined }) })
-    toast.show(`${c.id} escalated. Customer will be texted when it is fixed.`); caseNote.value = ''; emit('changed'); ui.close()
-  } catch { toast.show('Could not escalate this case') }
+    const c = await api<{ id: string }>('/cases', { method: 'POST', body: JSON.stringify({ category: category.value, priority: priority.value, customerRef: props.call.customer?.id ?? props.call.number, customerPhone: props.call.number, meterNumber: props.call.customer?.meter, callId: props.call.id, amountNgn: amount.value, notes: caseNote.value || undefined,
+      ...(assignTo.value === 'me' ? {} : { assigneeId: assignTo.value === 'queue' ? null : assignTo.value }) }) })
+    toast.show(`${c.id} escalated${assignTo.value === 'queue' ? ' to the queue' : assignTo.value !== 'me' ? ` and given to ${people.value.find((p) => p.id === assignTo.value)?.name ?? 'a colleague'}` : ''}. Customer will be texted when it is fixed.`); caseNote.value = ''; emit('changed'); ui.close()
+  } catch (e) { toast.show(e instanceof Error && !e.message.startsWith('Request failed') ? e.message : 'Could not escalate this case') }
 }
 function openCustomer(): void { if (props.call?.customer) { ui.close(); void router.push({ path: '/cust', query: { open: props.call.customer.id } }) } }
 </script>
@@ -144,6 +152,8 @@ function openCustomer(): void { if (props.call?.customer) { ui.close(); void rou
         <select v-model="category" aria-label="Category"><option v-for="c in CATS" :key="c.id" :value="c.id">{{ c.label }}</option></select>
         <label class="fl">Priority<select v-model="priority"><option v-for="p in (['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const)" :key="p" :value="p">{{ escalationPriorityLabel(p) }}</option></select></label>
         <label class="fl">Amount involved (NGN)<input v-model.number="amount" type="number" min="0" /></label>
+        <label class="fl">Give it to<select v-model="assignTo"><option value="me">Me</option><option value="queue">The queue (anyone can take it)</option>
+          <option v-for="p in otherPeople" :key="p.id" :value="p.id">{{ p.name }}{{ p.role === 'supervisor' ? ' (supervisor)' : '' }}, {{ PRESENCE_LABEL[p.presence] }}{{ p.openCases ? `, ${p.openCases} open` : '' }}</option></select></label>
         <textarea v-model="caseNote" rows="2" aria-label="Notes" placeholder="What happened?" maxlength="1000" style="margin-top: 8px"></textarea>
         <p style="color: #ccc; margin: 6px 0 0">Deadline for this kind of case: {{ sla >= 60 ? `${sla / 60} hours` : `${sla} minutes` }}. The customer is texted when it is fixed.</p>
         <div class="btns"><button class="y" style="flex: 1" aria-label="Send escalation" @click="escalate"><Icon name="send" /></button></div>

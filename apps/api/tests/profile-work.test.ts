@@ -29,7 +29,7 @@ describe('cases and tickets on the customer profile', () => {
     expect(made.status).toBe(201)
     const list = (await h.get(`/api/customers/${C}/cases`, a)).json
     expect(list).toHaveLength(1)
-    expect(list[0]).toMatchObject({ id: made.json.id, customer: C, state: 'New' })
+    expect(list[0]).toMatchObject({ id: made.json.id, customer: C, state: 'Working' })
     const done = await h.send('POST', `/api/cases/${made.json.id}/resolve`, a, { note: 'Token resent' })
     expect(done.json.state).toBe('Done')
     expect((await h.get(`/api/customers/${C}/cases`, a)).json[0].state).toBe('Done')

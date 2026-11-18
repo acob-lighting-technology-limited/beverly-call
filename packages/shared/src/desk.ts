@@ -55,9 +55,23 @@ export const createCaseSchema = z.object({
   callId: z.string().uuid().optional(),
   amountNgn: z.number().nonnegative().max(100_000_000).default(0),
   notes: z.string().max(1000).optional(),
+  /** Who should hold the case: omitted = the person opening it, null = the queue (anyone can take it), or a Beverly Call agent or supervisor. */
+  assigneeId: z.string().min(1).max(64).nullable().optional(),
 })
 export type CreateCase = z.infer<typeof createCaseSchema>
-export const assignCaseSchema = z.object({ agentId: z.string().min(1).max(64) })
+/** Hand a case to an agent or supervisor. A lead can do this at any time; the person holding a case can hand it on. */
+export const assignCaseSchema = z.object({ agentId: z.string().min(1).max(64), note: z.string().trim().max(500).optional() })
+export const releaseCaseSchema = z.object({ note: z.string().trim().max(500).optional() })
+
+/** The people a case can be given to, with whether they are around and how much they already hold. */
+export const assigneeSchema = z.object({
+  id: z.string(), name: z.string(), role: z.enum(['agent', 'supervisor']),
+  presence: z.enum(['available', 'busy', 'acw', 'break', 'away', 'offline']), openCases: z.number().int(),
+})
+export type Assignee = z.infer<typeof assigneeSchema>
+export const caseEventKindSchema = z.enum(['opened', 'assigned', 'reassigned', 'claimed', 'accepted', 'released'])
+export const caseEventSchema = z.object({ kind: caseEventKindSchema, by: z.string(), text: z.string(), at: z.string(), ts: z.string().default('') })
+export type CaseEvent = z.infer<typeof caseEventSchema>
 
 export const tokenRevealSchema = z.object({
   purchaseId: z.string().min(1).max(64),

@@ -89,7 +89,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(helmet)
   await app.register(cookie)
   await app.register(formbody)
-  await app.register(rateLimit, { max: 120, timeWindow: '1 minute' })
+  await app.register(rateLimit, { max: env.API_RATE_LIMIT, timeWindow: '1 minute' })
 
   // Reject cross-site writes: browsers always send Origin on cross-origin POSTs.
   app.addHook('onRequest', async (req, reply) => {

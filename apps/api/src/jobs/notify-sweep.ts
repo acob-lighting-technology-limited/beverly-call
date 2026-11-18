@@ -1,5 +1,6 @@
 import type { Pool } from 'pg'
 import { notify, type PushSender } from '../notify/notify.js'
+import { leadIdsFromDb } from '../cases/case-staff.js'
 
 /**
  * Creates alerts for newly overdue cases, callbacks due soon and recordings waiting too long to ingest.
@@ -11,7 +12,16 @@ export async function notifySweep(pool: Pool, send: PushSender | null): Promise<
     `select ticket_ref, category, agent_crm_id from call_centre.tickets
      where status in ('OPEN','INVESTIGATING') and sla_due_at < now()`)
   for (const t of over.rows) {
-    if (await notify(pool, send, { userId: t.agent_crm_id, category: 'esc', tone: 'bad', title: `${t.ticket_ref} is past its deadline`, body: t.category.replaceAll('_', ' '), link: '/cases', dedupeKey: `overdue:${t.ticket_ref}` })) created++
+    const body = t.category.replaceAll('_', ' ')
+    if (t.agent_crm_id) {
+      if (await notify(pool, send, { userId: t.agent_crm_id, category: 'esc', tone: 'bad', title: `${t.ticket_ref} is past its deadline`, body, link: `/cases?open=${t.ticket_ref}`, dedupeKey: `overdue:${t.ticket_ref}` })) created++
+    } else {
+      // Nobody holds it: the supervisors and admins are told (everyone is, only if Beverly's staff data cannot be read).
+      const leads = await leadIdsFromDb(pool)
+      for (const id of leads ?? [null]) {
+        if (await notify(pool, send, { userId: id, category: 'esc', tone: 'bad', title: `${t.ticket_ref} is past its deadline and nobody holds it`, body, link: `/cases?open=${t.ticket_ref}`, dedupeKey: `overdue:${t.ticket_ref}${id ? `:${id}` : ''}` })) created++
+      }
+    }
   }
   const due = await pool.query<{ callback_ref: string; phone_number: string; assigned_to_crm_id: string | null }>(
     `select callback_ref, phone_number, assigned_to_crm_id from call_centre.callbacks
