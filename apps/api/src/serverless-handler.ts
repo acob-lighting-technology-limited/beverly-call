@@ -58,8 +58,11 @@ export const createHandler = (appOf: () => Promise<FastifyInstance>) => async (r
     res.end(r.rawPayload)
   } catch (e) {
     console.error('api function failed', e)
-    res.statusCode = 500
+    // A bad or missing setting is the one failure worth naming: loadEnv's message lists setting NAMES only (never values),
+    // and the names are already public in .env.example. Anything else stays generic.
+    const config = e instanceof Error && /^Invalid environment: [A-Za-z0-9_., ]+$/.test(e.message) ? e.message : undefined
+    res.statusCode = config ? 503 : 500
     res.setHeader('content-type', 'application/json')
-    res.end(JSON.stringify({ error: 'Service unavailable' }))
+    res.end(JSON.stringify({ error: 'Service unavailable', ...(config ? { config } : {}) }))
   }
 }

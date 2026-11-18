@@ -111,6 +111,16 @@ describe('Vercel handler over real HTTP', () => {
     const bad = await fetch(`${url}/api/webhooks/at/voice`, { method: 'POST', headers: { 'x-webhook-secret': 'wrong', 'content-type': 'application/x-www-form-urlencoded' }, body })
     expect(bad.status).toBe(401)
   })
+  it('names the invalid settings, and only their names, when the environment is wrong', async () => {
+    const bad = createServer(createHandler(async () => { serverlessEnv({ ...base, DATABASE_URL: 'postgres://user:p@ss-w0rd-SECRET@host/db', SESSION_SECRET: 'short', VERCEL_URL: 'x.vercel.app' }); throw new Error('unreachable') }))
+    await new Promise<void>((r) => bad.listen(0, '127.0.0.1', r))
+    const r = await fetch(`http://127.0.0.1:${(bad.address() as AddressInfo).port}/api/health`)
+    const text = await r.text()
+    bad.close()
+    expect(r.status).toBe(503)
+    expect(JSON.parse(text).config).toMatch(/^Invalid environment: .*SESSION_SECRET/)
+    expect(text).not.toMatch(/SECRET@|p@ss|w0rd|user:|short/)
+  })
   it('answers a generic 500 with no internals when the app cannot start', async () => {
     const dead = createServer(createHandler(async () => { throw new Error('postgres://secret@host exploded') }))
     await new Promise<void>((r) => dead.listen(0, '127.0.0.1', r))
