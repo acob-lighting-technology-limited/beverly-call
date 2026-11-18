@@ -44,3 +44,8 @@ export const sinceLabel = (ms: number): string => {
   const day = (d: Date): string => d.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' })
   return day(at) === day(new Date()) ? `${time} today` : `${at.toLocaleDateString(intl(), { timeZone: 'Africa/Lagos', day: 'numeric', month: 'short' })}, ${time}`
 }
+
+/** Only the digits of a phone number, for counting and comparing. */
+export const phoneDigits = (p: string): string => p.replace(/\D/g, '')
+/** What a dialler needs: digits and a leading plus, with spaces, dashes and brackets removed. */
+export const dialable = (p: string): string => p.replace(/[^\d+]/g, '')

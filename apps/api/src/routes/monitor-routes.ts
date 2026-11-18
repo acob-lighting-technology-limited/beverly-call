@@ -28,7 +28,7 @@ export const monitorRoutes = ({ env, pool, fetchImpl, storage }: AppDeps): Fasti
         `select count(*) total,
                 count(*) filter (where answered_at is null and ended_at is not null) abandoned,
                 count(*) filter (where answered_at is not null and answered_at - started_at <= ($1 || ' seconds')::interval) sl
-         from call_centre.calls where started_at >= (date_trunc('day', now() at time zone '${TZ}') at time zone '${TZ}')`, [SL_SECONDS]),
+         from call_centre.calls where direction = 'inbound' and started_at >= (date_trunc('day', now() at time zone '${TZ}') at time zone '${TZ}')`, [SL_SECONDS]),
       pool.query<{ h: number; n: string }>(`select extract(hour from started_at at time zone '${TZ}')::int h, count(*) n from call_centre.calls where started_at >= (date_trunc('day', now() at time zone '${TZ}') at time zone '${TZ}') group by 1`),
       pool.query<{ value: unknown }>(`select value from call_centre.settings where key = 'alert_limits'`),
     ])
@@ -129,7 +129,7 @@ export const monitorRoutes = ({ env, pool, fetchImpl, storage }: AppDeps): Fasti
       pool.query<{ total: string; abandoned: string; sl: string; cost: string | null }>(
         `select count(*) total, count(*) filter (where answered_at is null and ended_at is not null) abandoned,
                 count(*) filter (where answered_at is not null and answered_at - started_at <= ($2 || ' seconds')::interval) sl, avg(cost_ngn) cost
-         from call_centre.calls where started_at > now() - ($1 || ' days')::interval`, [days, SL_SECONDS]),
+         from call_centre.calls where direction = 'inbound' and started_at > now() - ($1 || ' days')::interval`, [days, SL_SECONDS]),
       pool.query<{ agent: string; n: string; rating: string | null }>(
         `select agent_crm_id agent, count(*) n, avg(rating) rating from call_centre.calls
          where agent_crm_id is not null and started_at > now() - ($1 || ' days')::interval group by 1 order by n desc limit 10`, [days]),
@@ -164,8 +164,8 @@ export const monitorRoutes = ({ env, pool, fetchImpl, storage }: AppDeps): Fasti
     const M: Record<MetricKey, { table: string; ts: string; expr: string; unit: string }> = {
       calls: { table: 'call_centre.calls', ts: 'started_at', expr: 'count(*)', unit: 'calls' },
       handle_time: { table: 'call_centre.calls', ts: 'started_at', expr: 'coalesce(round(avg(extract(epoch from ended_at - started_at)) filter (where ended_at is not null)), 0)', unit: 'seconds' },
-      abandoned: { table: 'call_centre.calls', ts: 'started_at', expr: 'count(*) filter (where answered_at is null and ended_at is not null)', unit: 'calls' },
-      service_level: { table: 'call_centre.calls', ts: 'started_at', expr: `coalesce(round(100.0 * count(*) filter (where answered_at is not null and answered_at - started_at <= interval '${SL_SECONDS} seconds') / nullif(count(*), 0)), 0)`, unit: '%' },
+      abandoned: { table: 'call_centre.calls', ts: 'started_at', expr: "count(*) filter (where direction = 'inbound' and answered_at is null and ended_at is not null)", unit: 'calls' },
+      service_level: { table: 'call_centre.calls', ts: 'started_at', expr: `coalesce(round(100.0 * count(*) filter (where direction = 'inbound' and answered_at is not null and answered_at - started_at <= interval '${SL_SECONDS} seconds') / nullif(count(*) filter (where direction = 'inbound'), 0)), 0)`, unit: '%' },
       open_cases: { table: 'call_centre.tickets', ts: 'created_at', expr: `count(*) filter (where status in ('OPEN','INVESTIGATING'))`, unit: 'cases' },
       overdue_cases: { table: 'call_centre.tickets', ts: 'created_at', expr: `count(*) filter (where status in ('OPEN','INVESTIGATING') and sla_due_at < now())`, unit: 'cases' },
     }

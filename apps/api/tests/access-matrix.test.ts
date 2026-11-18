@@ -30,7 +30,7 @@ const MATRIX: Record<string, R[] | null> = {
   'PUT /api/admin/shifts/assignments/:agentId': ADMIN, 'PUT /api/admin/shifts/overrides': ADMIN, 'DELETE /api/admin/shifts/overrides': ADMIN, 'GET /api/shifts/roster': LEAD, 'GET /api/shifts/me': STAFF, 'GET /api/customers/:id/cases': STAFF, 'GET /api/customers/:id/support-tickets': STAFF,
   'GET /api/bindings': STAFF, 'POST /api/bindings': STAFF, 'POST /api/bindings/:id/decision': LEAD, 'GET /api/customers/:id/numbers': STAFF,
   'GET /api/support/tickets': STAFF, 'GET /api/support/stats': STAFF, 'GET /api/support/tickets/:id': STAFF, 'PATCH /api/support/tickets/:id': STAFF, 'POST /api/support/tickets/:id/messages': STAFF,
-  'POST /api/customers/:id/notes': STAFF, 'POST /api/customers/sms': STAFF, 'POST /api/customers/:id/token-reveal': STAFF,
+  'POST /api/customers/:id/notes': STAFF, 'POST /api/customers/:id/call': AGENT, 'POST /api/customers/sms': STAFF, 'POST /api/customers/:id/token-reveal': STAFF,
   'GET /api/notifications': STAFF, 'POST /api/notifications/read': STAFF, 'GET /api/handover': STAFF, 'POST /api/handover': STAFF,
   'GET /api/replies': STAFF, 'GET /api/outages': STAFF, 'GET /api/push/key': STAFF, 'PUT /api/push/prefs': STAFF, 'POST /api/push/subscribe': STAFF, 'POST /api/push/unsubscribe': STAFF,
   'GET /api/wall': LEAD, 'GET /api/recordings': LEAD, 'POST /api/recordings/:id/hold': LEAD, 'GET /api/recordings/:id/url': LEAD,

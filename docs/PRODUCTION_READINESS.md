@@ -58,6 +58,10 @@ Static web app plus the API as one Vercel Function (`api/index.mjs`, 30 s limit)
 - **Needs applying before this is deployed:** `db/baseline/20261118100000_call_centre_case_pipeline.sql` adds nullable columns to `call_centre.tickets` and the `ticket_events` table (additive; the one backfill sets "raised by" to the current holder of existing cases). The API's case routes need it, so apply it in the Beverly project first, then deploy.
 - **API mode vs database mode.** In database mode the people who can hold cases come from Beverly's staff data (everyone with the `call` portal who is not an admin). In API mode, where Beverly hides its staff list from most roles, anyone who has signed in to Beverly Call also counts; supervisors are recognised from a `role:supervisor` marker on their presence row.
 
+## Click to call (built and tested)
+- **What it does.** The Call button on a customer's profile opens an outbound call on the agent's call screen (customer context, history, notes, escalation, wrap-up), marks the agent busy so incoming calls skip them, and hands the number to the device's dialler (`tel:`). The number comes from Beverly's record, never from the browser. One open call per agent, enforced in the database; a call nobody wraps up is closed after 4 hours.
+- **What it does not do: audio in the browser.** The call itself is on the agent's own phone or dialler. The carrier does not record it (the screen says "Outgoing", not REC), and outbound calls are left out of service-level and abandon figures. Ringing the customer from the desk number through the carrier needs the browser softphone to carry the agent's side, which is not built, so that path is deliberately not offered.
+
 ## Decisions and risks
 - **Rate limiting is per function instance.** `@fastify/rate-limit` uses its in-memory store. On Vercel each instance counts separately, so the 8 per minute login limit is approximate. For a hard limit use a shared store (for example Upstash Redis).
 - **Station scope.** `CALL_STATION_SCOPE` is unset, so it defaults to `off`: every agent can search every customer. Set `on` if agents should only see their own stations.

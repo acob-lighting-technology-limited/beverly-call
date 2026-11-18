@@ -23,3 +23,14 @@ describe('format', () => {
   it('quotes commas and quotes', () => expect(csvCell('a,"b"')).toBe('"a,""b"""'))
   it('formats clock', () => expect(clock(125)).toBe('02:05'))
 })
+
+describe('phone helpers for click to call', () => {
+  it('keeps the digits and a leading plus for the dialler, whatever the formatting', async () => {
+    const { dialable, phoneDigits } = await import('../src/lib/format')
+    expect(dialable('0803 555 0142')).toBe('08035550142')
+    expect(dialable('+234 (803) 555-0142')).toBe('+2348035550142')
+    expect(dialable('')).toBe('')
+    expect(phoneDigits('+234 803 555 0142')).toBe('2348035550142')
+    expect(phoneDigits('no number')).toBe('')
+  })
+})

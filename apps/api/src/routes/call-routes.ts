@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { CALL_ALERT, outagesSchema, transferSchema, noteSchema, wrapUpSchema, languageSchema, type ActiveCall, type CallNote } from '@beverly-call/shared'
+import { CALL_ALERT, outagesSchema, transferSchema, noteSchema, wrapUpSchema, languageSchema, type ActiveCall, type CallNote, type PlacedCall } from '@beverly-call/shared'
 import type { AppDeps } from '../app.js'
 import { requireRole } from '../auth/guards.js'
 import { auditAs } from '../audit/audit-request.js'
@@ -13,7 +13,7 @@ import { hm } from '../time.js'
 interface CustomerCtx { id: string; name: string; meter: string; area: string; balance: number | null }
 const ctxCache = new Map<string, { at: number; found: CustomerCtx | null }>()
 
-interface CallRow { id: string; caller_number: string; started_at: Date; language: string; customer_ref: string | null; meter_number: string | null; customer_name: string | null; agent_crm_id: string | null }
+interface CallRow { id: string; caller_number: string; started_at: Date; language: string; customer_ref: string | null; meter_number: string | null; customer_name: string | null; agent_crm_id: string | null; direction?: 'inbound' | 'outbound' }
 
 /** Live call state, notes, transfer, wrap-up and the browser softphone token. Only the call's own agent may act on it. */
 export const callRoutes = ({ env, pool, fetchImpl, provider, push }: AppDeps): FastifyPluginAsync => async (app) => {
@@ -30,7 +30,7 @@ export const callRoutes = ({ env, pool, fetchImpl, provider, push }: AppDeps): F
   app.get('/calls/active', { preHandler: agent }, async (req): Promise<ActiveCall | null> => {
     const me = req.session!.user
     const r = await pool.query<CallRow>(
-      `select id, caller_number, started_at, language, customer_ref, meter_number, customer_name, agent_crm_id
+      `select id, caller_number, started_at, language, customer_ref, meter_number, customer_name, agent_crm_id, direction
        from call_centre.calls where agent_crm_id = $1 and ended_at is null order by started_at desc limit 1`, [me.id])
     const call = r.rows[0]
     if (!call) return null
@@ -69,9 +69,38 @@ export const callRoutes = ({ env, pool, fetchImpl, provider, push }: AppDeps): F
     return {
       id: call.id, name: call.customer_name ?? call.caller_number, number: call.caller_number, startedAt: call.started_at.toISOString(),
       language: languageSchema.catch('en').parse(call.language), customer, openTickets: Number(tickets.rows[0]?.n ?? 0),
-      outage: hit ? `${hit.message} until ${hit.until}` : null,
+      outage: hit ? `${hit.message} until ${hit.until}` : null, direction: call.direction ?? 'inbound',
     }
   })
+
+  /**
+   * Click to call: the agent calls a customer from their own phone or dialler, and Beverly Call runs the rest of the call.
+   * It opens an outbound call on the agent's call screen (customer, history, notes, escalation, wrap-up) and marks the agent busy so
+   * incoming calls are not sent to them. The number comes from Beverly's record of the customer, never from the browser. The audio itself
+   * is the agent's phone: the browser softphone is not built, and a carrier-placed call would ring the customer with nobody to talk to.
+   * These calls are not recorded by the carrier and are left out of service-level and abandon figures, which are about callers ringing in.
+   */
+  app.post<{ Params: { id: string } }>('/customers/:id/call', { preHandler: agent, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (req, reply): Promise<PlacedCall | void> => {
+    const me = req.session!.user
+    let customer
+    try { customer = await beverlyData({ env, pool, fetchImpl }, req.session!).customerById(req.params.id) }
+    catch (e) { if (e instanceof BeverlyError) return reply.code(e.status === 401 || e.status === 403 ? e.status : 502).send({ error: e.message }); throw e }
+    if (!customer) return reply.code(404).send({ error: 'Customer not found' })
+    const phone = customer.phone.trim()
+    if (phoneTail(phone).length < 7) return reply.code(422).send({ error: 'There is no phone number on file for this customer.' })
+    // One open call per agent, enforced in the insert itself so two quick clicks cannot open two.
+    const r = await pool.query<{ id: string }>(
+      `insert into call_centre.calls (at_session_id, direction, caller_number, queue, agent_crm_id, customer_ref, customer_name, meter_number, started_at, answered_at)
+       select 'out-' || gen_random_uuid()::text, 'outbound', $2, 'outbound', $1, $3, $4, $5, now(), now()
+       where not exists (select 1 from call_centre.calls where agent_crm_id = $1 and ended_at is null)
+       returning id`, [me.id, phone, customer.id, customer.name || null, customer.meter || null])
+    const call = r.rows[0]
+    if (!call) return reply.code(409).send({ error: 'You are already on a call. Wrap it up first.' })
+    await pool.query(`update call_centre.agent_presence set status = 'busy' where agent_crm_id = $1`, [me.id])
+    await auditAs(pool, req, 'customer.call', 'call', call.id, { customer: customer.id })
+    return reply.code(201).send({ callId: call.id, phone, name: customer.name || phone })
+  })
+
 
   app.post<{ Params: { id: string } }>('/calls/:id/wrap-up', { preHandler: agent }, async (req, reply) => {
     const body = wrapUpSchema.safeParse(req.body)

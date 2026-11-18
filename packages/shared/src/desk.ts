@@ -32,8 +32,13 @@ export const activeCallSchema = z.object({
   id: z.string(), name: z.string(), number: z.string(), startedAt: z.string(), language: languageSchema,
   customer: z.object({ id: z.string(), name: z.string(), meter: z.string(), balance: z.number().nullable() }).nullable(),
   openTickets: z.number().int(), outage: z.string().nullable(),
+  /** An outbound call was started by the agent (click to call); it is not recorded by the carrier. */
+  direction: z.enum(['inbound', 'outbound']).default('inbound'),
 })
 export type ActiveCall = z.infer<typeof activeCallSchema>
+/** Answer to "call this customer": the call now open on the agent's call screen, and the number to dial on their own phone or dialler. */
+export const placedCallSchema = z.object({ callId: z.string(), phone: z.string(), name: z.string() })
+export type PlacedCall = z.infer<typeof placedCallSchema>
 export const transferSchema = z.object({ toAgentId: z.string().min(1).max(64), warm: z.boolean().default(false) })
 export const noteSchema = z.object({ text: z.string().trim().min(1).max(1000) })
 export const callNoteSchema = z.object({ by: z.string(), text: z.string(), at: z.string() })

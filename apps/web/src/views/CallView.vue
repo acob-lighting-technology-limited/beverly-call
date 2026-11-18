@@ -112,7 +112,7 @@ const onTouchEnd = (e: TouchEvent) => { if (touchY - e.changedTouches[0]!.client
 <template>
   <section id="call" :class="{ hold: held }">
     <div class="cf" @touchstart.passive="onTouchStart" @touchend="onTouchEnd">
-      <div class="ct"><span class="rec">REC</span></div>
+      <div class="ct"><span v-if="call?.direction === 'outbound'" class="rec rec-off" title="You are calling from your own phone. The carrier does not record this call.">Outgoing</span><span v-else class="rec">REC</span></div>
       <div v-if="loading" class="mid"><div class="sub">Checking for your active call…</div></div>
       <div v-else-if="!call" class="mid"><div class="nm">No active call</div><div class="sub">{{ presence.status === 'available' ? 'You are available. Calls will appear here.' : 'Set yourself to Available to receive calls.' }}</div></div>
       <template v-else>
@@ -195,4 +195,9 @@ const onTouchEnd = (e: TouchEvent) => { if (touchY - e.changedTouches[0]!.client
 .chipb:hover { filter: brightness(0.95); }
 .chipb :deep(.i) { width: 14px; height: 14px; }
 .ctx { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; padding: 2px; }
+</style>
+
+<style scoped>
+/* An outgoing call from the agent's own phone is not recorded, so it shows a plain label, not the recording light. */
+.rec-off::before { animation: none; background: var(--mut); }
 </style>

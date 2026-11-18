@@ -2,7 +2,7 @@
 import { humanStatus, purchaseTone } from '@/lib/status'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { CUSTOMER_PAGE_SIZE, LOW_WALLET_NAIRA, type Customer, type CustomerDetail, type CustomerFull, type CustomerPage, type CustomerProfile, type CustomerSummary, type WalletInfo } from '@beverly-call/shared'
+import { CUSTOMER_PAGE_SIZE, LOW_WALLET_NAIRA, type Customer, type CustomerDetail, type CustomerFull, type CustomerPage, type CustomerProfile, type CustomerSummary, type PlacedCall, type WalletInfo } from '@beverly-call/shared'
 import Icon from '@/components/Icon.vue'
 import CustomerProfileCard from '@/components/CustomerProfileCard.vue'
 import KpiTile from '@/components/KpiTile.vue'
@@ -15,7 +15,7 @@ import FilterPopover, { type FilterGroup } from '@/components/FilterPopover.vue'
 import ViewToggle, { type ViewMode } from '@/components/ViewToggle.vue'
 import { api } from '@/lib/api'
 import { maskPhone } from '@/lib/mask'
-import { shortDate, pad2 } from '@/lib/format'
+import { dialable, pad2, phoneDigits, shortDate } from '@/lib/format'
 import { useSettings } from '@/stores/settings'
 import { useToast } from '@/stores/toast'
 import { useSession } from '@/stores/session'
@@ -158,6 +158,23 @@ async function book(): Promise<void> {
 }
 async function refreshWork(): Promise<void> { if (sel.value) full.value = await api<CustomerFull>(`/customers/${encodeURIComponent(sel.value.id)}/full`).catch(() => full.value) }
 const canCall = computed(() => session.role === 'agent' || session.role === 'supervisor')
+
+/** Click to call: opens the call on the call screen (customer, history, notes, wrap-up), then hands the number to this device's dialler. */
+const calling = ref(false)
+const hasPhone = computed(() => phoneDigits(sel.value?.phone ?? '').length >= 7)
+async function callCustomer(): Promise<void> {
+  if (!sel.value || calling.value) return
+  calling.value = true
+  try {
+    const r = await api<PlacedCall>(`/customers/${encodeURIComponent(sel.value.id)}/call`, { method: 'POST' })
+    toast.show(`Calling ${r.name}. Your phone or dialler opens now; log the outcome here when you finish.`, 6000)
+    const a = document.createElement('a')
+    a.href = `tel:${dialable(r.phone)}`
+    a.click()
+    await router.push('/call')
+  } catch (e) { toast.show(e instanceof Error ? e.message : 'Could not start the call') }
+  finally { calling.value = false }
+}
 </script>
 
 <template>
@@ -206,7 +223,8 @@ const canCall = computed(() => session.role === 'agent' || session.role === 'sup
         <div v-hover-scroll class="kp"><KpiTile icon="bolt" :value="pad2(detail?.purchases.length ?? 0)" label="Recent vends" /><KpiTile icon="flag" :value="pad2(full?.stages.reported ?? 0)" label="Cases" dark /><KpiTile icon="clock" :value="pad2(full?.callbacks.length ?? 0)" label="Callbacks" /></div></div>
       <div class="bento"><div class="hero">
         <div class="pc"><div class="pa">{{ initials(sel.name) }}</div><b style="font-weight: 400; font-size: 18px">{{ sel.name }}</b><div style="color: var(--mut)">{{ sel.accountType }}, {{ sel.area }}</div>
-          <div class="ia"><button v-if="canCall" aria-label="Schedule callback" title="Book a callback" @click="book"><Icon name="clock" /></button>
+          <div class="ia"><button v-if="canCall" class="ia-call" aria-label="Call customer" title="Call this customer" :disabled="!hasPhone || calling" @click="callCustomer"><Icon name="phone" /></button>
+          <button v-if="canCall" aria-label="Schedule callback" title="Book a callback" @click="book"><Icon name="clock" /></button>
             <button aria-label="SMS" title="Send SMS" :disabled="!canSms" @click="smsOpen = true"><Icon name="mail" /></button>
             <button aria-label="Add note" title="Add note" @click="noteOpen = true"><Icon name="plus" /></button></div></div>
         <div class="dr">
@@ -264,4 +282,7 @@ const canCall = computed(() => session.role === 'agent' || session.role === 'sup
 /* "Show more" under the directory: the next page also loads by itself as this scrolls into view. */
 .cmore { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 14px 0 6px; }
 .cmore small { color: var(--mut); font-size: 11px; font-variant-numeric: tabular-nums; }
+/* The Call button is the main action in the profile row. */
+.ia-call { background: var(--yel); color: var(--on-accent); }
+.ia-call:disabled { opacity: .4; }
 </style>

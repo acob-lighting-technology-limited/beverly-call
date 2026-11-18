@@ -2,12 +2,25 @@ import type { Pool } from 'pg'
 import { notify, type PushSender } from '../notify/notify.js'
 import { leadIdsFromDb } from '../cases/case-staff.js'
 
+/** An outbound (click to call) call has no carrier event to end it. One left open this long was abandoned, so it is closed and the agent freed. */
+export const STALE_OUTBOUND_HOURS = 4
+
+export async function closeStaleOutboundCalls(pool: Pool): Promise<number> {
+  const r = await pool.query<{ agent_crm_id: string }>(
+    `update call_centre.calls set ended_at = now(), disposition = coalesce(disposition, 'No outcome recorded')
+     where direction = 'outbound' and ended_at is null and started_at < now() - ($1 || ' hours')::interval returning agent_crm_id`, [STALE_OUTBOUND_HOURS])
+  const agents = [...new Set(r.rows.map((x) => x.agent_crm_id).filter(Boolean))]
+  if (agents.length) await pool.query(`update call_centre.agent_presence set status = 'available', idle_since = now() where agent_crm_id = any($1::text[]) and status in ('busy','acw')`, [agents])
+  return r.rowCount ?? 0
+}
+
 /**
- * Creates alerts for newly overdue cases, callbacks due soon and recordings waiting too long to ingest.
+ * Creates alerts for newly overdue cases, callbacks due soon and recordings waiting too long to ingest, and closes abandoned click-to-call calls.
  * Idempotent: dedupe keys mean each event alerts once, so the job can run every minute.
  */
 export async function notifySweep(pool: Pool, send: PushSender | null): Promise<number> {
   let created = 0
+  await closeStaleOutboundCalls(pool)
   const over = await pool.query<{ ticket_ref: string; category: string; agent_crm_id: string | null }>(
     `select ticket_ref, category, agent_crm_id from call_centre.tickets
      where status in ('OPEN','INVESTIGATING') and sla_due_at < now()`)
