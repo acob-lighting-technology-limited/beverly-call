@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** Admin console. Opening it morphs out of the rail button, and the rail itself turns into the admin tabs
- *  (see AppNav). This view is the workspace: a Back button in the header plus the active section.
+ *  (see AppNav). This view is the workspace: the active section, plus a Back button in the header when the admin arrived from a normal screen.
  *  The section is the route (/admin/:section); sections live in views/admin/. Used by: router. */
 import { computed, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -29,6 +29,8 @@ const current = computed(() => adminSection(route.params.section))
 const view = computed(() => VIEWS[current.value.id as keyof typeof VIEWS])
 /** Sections in the same rail group, shown as tabs when there is more than one. */
 const tabs = computed(() => adminGroupOf(current.value.id).sections.map((id) => ADMIN_SECTIONS.find((s) => s.id === id)!).filter(Boolean))
+/** Back only exists when there is a normal screen to return to (the admin came from one). Landing in Admin straight from sign-in, there is nothing to go back to. */
+const canGoBack = !!navMemory.lastNormal
 const goBack = (): void => { void router.push(navMemory.lastNormal || `/${DEFAULT_SCREEN[session.role ?? 'agent']}`) }
 
 // Grow out of the rail button the user just pressed (none for keyboard or a direct link).
@@ -39,7 +41,7 @@ const morphStyle = origin ? { '--mx': `${origin.x}px`, '--my': `${origin.y}px` }
 <template>
   <section :class="{ 'adm-morph': !!origin }" :style="morphStyle">
     <PageHeader :title="current.label">
-      <template #leading><button class="ib" aria-label="Back to normal view" title="Back to normal view" @click="goBack"><Icon name="lft" /></button></template>
+      <template v-if="canGoBack" #leading><button class="ib" aria-label="Back to normal view" title="Back to normal view" @click="goBack"><Icon name="lft" /></button></template>
     </PageHeader>
     <div v-if="tabs.length > 1" class="adm-tabs" role="navigation" aria-label="Section">
       <RouterLink v-for="t in tabs" :key="t.id" :to="`/admin/${t.id}`" class="adm-tab" :class="{ on: t.id === current.id }" :aria-current="t.id === current.id ? 'page' : undefined">{{ t.label }}</RouterLink>

@@ -35,6 +35,8 @@ const ui = useUi()
 const showShell = computed(() => !route.meta.public && !!session.user)
 const current = computed(() => route.meta.screen as ScreenId | undefined)
 const inCall = computed(() => current.value === 'call')
+/** The role being previewed, shown as an icon (the words are in the tooltip). */
+const VIEW_ICON: Record<Role, string> = { agent: 'phone', supervisor: 'ear', admin: 'sliders' }
 const themeIcon = computed(() => ({ light: 'sun', dark: 'moon', auto: 'auto' })[settings.p.theme])
 const mark = useBrandMark()
 const initials = computed(() => (session.user?.name ?? '').split(/\s+/).map((w) => w[0] ?? '').join('').slice(0, 2).toUpperCase())
@@ -130,7 +132,7 @@ const toggleMenu = () => ui.toggle('menu')
       <div class="br">
         <img class="bmark" :src="mark" alt="" width="30" height="30" />
         <span>Beverly Call</span>
-        <b v-if="session.viewAs && !inCall" class="chip" id="act" style="font-weight: 400">Viewing as {{ session.viewAs }}</b>
+        <span v-if="session.viewAs && !inCall" id="act" class="vwas" role="img" tabindex="0" :aria-label="`Viewing as ${session.viewAs}`" :data-tip="`Viewing as ${session.viewAs}`"><Icon :name="VIEW_ICON[session.viewAs]" /></span>
       </div>
       <button class="ib" :aria-label="`Theme: ${settings.p.theme}. Click to change`" :title="`Theme: ${settings.p.theme}`" @click.stop="settings.cycleTheme"><Icon :name="themeIcon" /></button>
       <button class="ib" aria-label="Search" title="Search (Ctrl K)" @click.stop="ui.open('search')"><Icon name="search" /></button>
@@ -177,8 +179,19 @@ const toggleMenu = () => ui.toggle('menu')
 .skip:focus { top: 8px; }
 .avi { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--yel); color: var(--on-accent); font-size: 13px; line-height: 1; }
 .avw { position: relative; display: inline-grid; }
-.avb[data-st=available] .sd { background: var(--st-on); }
-.avb[data-st=break] .sd { background: var(--st-break); }
-.avb[data-st=away] .sd { background: var(--st-away); }
+/* The status dot follows the presence status wherever the avatar appears: the top-bar button and the account menu header. */
+:is(.avb, .avw)[data-st=available] .sd { background: var(--st-on); }
+:is(.avb, .avw)[data-st=break] .sd { background: var(--st-break); }
+:is(.avb, .avw)[data-st=away] .sd { background: var(--st-away); }
 .avb .avw { line-height: 0; }
+/* "Viewing as <role>": just the role's icon in the accent colour; the words appear on hover or keyboard focus. */
+.vwas { position: relative; display: inline-grid; place-items: center; flex: none; width: 28px; height: 28px; margin-left: 8px; border-radius: 50%; background: var(--yel); color: var(--on-accent); cursor: default; }
+.vwas .i { width: 16px; height: 16px; }
+.vwas::after { content: attr(data-tip); position: absolute; top: calc(100% + 8px); left: 0; z-index: var(--z-lock, 60); padding: 4px 10px; border-radius: var(--r-pill); white-space: nowrap; font-size: 11px; line-height: 1.4;
+  background: var(--surface-inverse, var(--dark)); color: var(--text-inverse, #fff); pointer-events: none; opacity: 0; transform: translateY(-2px); transition: opacity .12s, transform .12s; }
+.vwas:hover::after, .vwas:focus-visible::after { opacity: 1; transform: none; }
+/* The top bar sits below the fixed status banner; lift it while the tooltip shows so the tooltip is never covered. */
+.tbar:has(.vwas:hover, .vwas:focus-visible) { z-index: var(--z-popover, 40); }
+.vwas:focus-visible { outline: var(--focus-ring, 2px solid currentColor); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .vwas::after { transition: none; } }
 </style>

@@ -72,14 +72,19 @@ const roleTone = (r: string): string => (r === 'admin' ? 'vi' : r === 'superviso
     </div>
 
     <div v-if="log.data.value" class="dtf aud-foot">
-      <label class="aud-size">Rows per page
-        <select v-model.number="pageSize" aria-label="Rows per page"><option v-for="n in AUDIT_PAGE_SIZES" :key="n" :value="n">{{ n }}</option></select></label>
-      <span class="aud-range" aria-live="polite">{{ from }}–{{ to }} of {{ total }}</span>
-      <button aria-label="First page" title="First page" :disabled="page <= 1" @click="go(1)"><Icon name="lft" /><Icon name="lft" class="aud-dbl" /></button>
-      <button aria-label="Previous page" title="Previous page" :disabled="page <= 1" @click="go(page - 1)"><Icon name="lft" /></button>
-      <span class="aud-page">Page {{ page }} of {{ pages }}</span>
-      <button aria-label="Next page" title="Next page" :disabled="page >= pages" @click="go(page + 1)"><Icon name="rgt" /></button>
-      <button aria-label="Last page" title="Last page" :disabled="page >= pages" @click="go(pages)"><Icon name="rgt" /><Icon name="rgt" class="aud-dbl" /></button>
+      <div class="aud-meta">
+        <label class="aud-size">Rows per page
+          <select v-model.number="pageSize" aria-label="Rows per page"><option v-for="n in AUDIT_PAGE_SIZES" :key="n" :value="n">{{ n }}</option></select></label>
+        <span class="aud-range" aria-live="polite">{{ from }}–{{ to }} of {{ total }}</span>
+      </div>
+      <!-- One group, so the page controls never split across lines. -->
+      <div class="aud-nav" role="group" aria-label="Pages">
+        <button class="aud-wide" aria-label="First page" title="First page" :disabled="page <= 1" @click="go(1)"><Icon name="lft" /><Icon name="lft" class="aud-dbl" /></button>
+        <button aria-label="Previous page" title="Previous page" :disabled="page <= 1" @click="go(page - 1)"><Icon name="lft" /></button>
+        <span class="aud-page">Page {{ page }} of {{ pages }}</span>
+        <button aria-label="Next page" title="Next page" :disabled="page >= pages" @click="go(page + 1)"><Icon name="rgt" /></button>
+        <button class="aud-wide" aria-label="Last page" title="Last page" :disabled="page >= pages" @click="go(pages)"><Icon name="rgt" /><Icon name="rgt" class="aud-dbl" /></button>
+      </div>
     </div>
   </div>
 </template>
@@ -89,11 +94,20 @@ const roleTone = (r: string): string => (r === 'admin' ? 'vi' : r === 'superviso
 .aud-note { margin: 2px 0 var(--sp-2); }
 .aud-action { font-weight: var(--fw-regular); }
 .aud-ref { font-size: var(--fs-xs); color: var(--text-muted); }
-.aud-foot { flex-wrap: wrap; justify-content: space-between; gap: var(--sp-2); }
+.aud-foot { flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--sp-2) var(--sp-3); }
+.aud-meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); }
 .aud-size { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .aud-size select { width: auto; padding: 4px 10px; border-radius: var(--r-pill); }
-.aud-range { margin-left: auto; margin-right: 0; }
-.aud-page { margin: 0 var(--sp-1); }
-.aud-foot button .aud-dbl { margin-left: -12px; }
-.aud-foot button { gap: 0; }
+.aud-range { margin: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.aud-nav { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.aud-page { margin: 0 var(--sp-2); white-space: nowrap; font-variant-numeric: tabular-nums; text-align: center; }
+/* The double chevron sits side by side (the global grid button would stack the two icons and spill out of the circle). */
+.aud-nav button.aud-wide { display: inline-flex; align-items: center; justify-content: center; }
+.aud-nav .aud-wide :deep(svg) { width: 18px; height: 18px; }
+.aud-nav .aud-wide .aud-dbl { margin-left: -10px; }
+/* On a narrow card the page controls take their own full-width row: first, previous, label, next, last. */
+@media (max-width: 520px) {
+  .aud-nav { margin-left: 0; width: 100%; }
+  .aud-page { flex: 1; margin: 0; }
+}
 </style>
